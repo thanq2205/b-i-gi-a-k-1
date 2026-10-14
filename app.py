@@ -192,12 +192,6 @@ GAME_HTML = r"""
 
 <div id="menu" class="ov" style="display:flex">
   <h1>DOORS</h1>
-  <p>Bạn bị kẹt trong một khách sạn bị bỏ hoang. Mỗi phòng có <b>3 manh mối</b> phát sáng.
-  Giải đố để lấy <b>chìa khóa</b>, ghép thành mật mã mở cửa.<br><br>
-  ⚡ Khi đèn nhấp nháy, <b>RUSH</b> sắp lao qua phòng: hãy <b>trốn vào tủ</b> hoặc né sang bên!<br>
-  👁️ Những đôi mắt trong bóng tối sẽ biến mất khi bạn nhìn thẳng vào chúng.<br>
-  Có 3 ❤️. Sai đáp án hoặc bị Rush đâm sẽ mất 1 ❤️.<br><br>
-  <i>Nên đeo tai nghe và tắt đèn phòng.</i></p>
   <div><button id="start">▶ BẮT ĐẦU</button><button id="qual">⚙️ Chất lượng: Cao</button></div>
 </div>
 <div id="over" class="ov"><h1>BẠN ĐÃ CHẾT</h1><p id="overmsg"></p><button id="retry">🔄 Thử lại</button></div>
@@ -735,8 +729,4 @@ requestAnimationFrame(loop);
 # ---------------------------------------------------------------------------
 # STREAMLIT
 # ---------------------------------------------------------------------------
-st.markdown("### 🚪 DOORS 3D – Thoát khỏi 5 cánh cửa")
-st.caption("Bấm **BẮT ĐẦU** rồi click vào màn hình để khóa chuột. Nếu trình duyệt không khóa được chuột, "
-           "hãy **kéo chuột** để xoay camera (hoặc dùng phím ← →). Máy yếu thì chọn **Chất lượng: Thấp**.")
-
 components.html(GAME_HTML.replace("__DATA__", build_data()), height=760, scrolling=False)
