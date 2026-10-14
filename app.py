@@ -1,11 +1,12 @@
 """
 🚪 DOORS 3D – Trò chơi giải đố kinh dị 5 cửa, góc nhìn thứ nhất (lấy cảm hứng từ Doors trong Roblox)
 Chạy:  streamlit run app.py
+Đặt file nhạc "doors-roblox-ost-elevator-jam-made-with-Voicemod.mp3" cùng thư mục với app.py.
 Game 3D chạy bằng Three.js, nhúng vào Streamlit qua components.html.
 """
+import base64
 import json
-import re
-import unicodedata
+from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -14,9 +15,10 @@ st.set_page_config(page_title="DOORS 3D", page_icon="🚪", layout="wide")
 
 
 # ---------------------------------------------------------------------------
-# DỮ LIỆU CÂU ĐỐ (sửa tại đây)
-# Mỗi cửa có 3 câu. Đúng -> nhận 1 chữ số. Ghép theo "order" để ra mật mã.
-#   q: câu hỏi | a: các đáp án chấp nhận (không cần dấu) | digit: chữ số | hint: gợi ý
+# DỮ LIỆU CÂU ĐỐ TRẮC NGHIỆM (sửa tại đây)
+# Mỗi cửa có 3 câu. Chọn đúng -> nhận 1 chữ số. Ghép theo "order" để ra mật mã.
+#   q: câu hỏi | a: đáp án ĐÚNG | w: 3 đáp án SAI | digit: chữ số | hint: gợi ý
+# Vị trí A/B/C/D được xáo ngẫu nhiên mỗi lần mở câu hỏi.
 # ---------------------------------------------------------------------------
 DOORS = [
     {
@@ -25,12 +27,14 @@ DOORS = [
         "order": [0, 1, 2],
         "order_text": "Ghép chìa 1 → chìa 2 → chìa 3.",
         "questions": [
-            {"q": "Cái gì càng lấy đi càng lớn?", "a": ["cai ho", "ho", "cai lo", "lo"],
+            {"q": "Cái gì càng lấy đi càng lớn?",
+             "a": "Cái hố", "w": ["Cái bóng", "Cái cây", "Tuổi tác"],
              "digit": 4, "hint": "Bạn thường thấy nó khi đào đất."},
-            {"q": "Có 3 quả táo, bạn lấy đi 2 quả. Vậy bạn đang có mấy quả táo?", "a": ["2", "hai"],
+            {"q": "Có 3 quả táo, bạn lấy đi 2 quả. Vậy bạn đang có mấy quả táo?",
+             "a": "2 quả", "w": ["1 quả", "3 quả", "5 quả"],
              "digit": 7, "hint": "Hỏi 'bạn có' chứ không hỏi 'còn lại'."},
             {"q": "Cái gì có chìa nhưng không mở được ổ khóa nào?",
-             "a": ["dan piano", "piano", "ban phim", "dan organ", "dan"],
+             "a": "Đàn piano", "w": ["Cái tủ", "Con dao", "Quyển sách"],
              "digit": 1, "hint": "Nhạc cụ có phím đen phím trắng."},
         ],
     },
@@ -40,11 +44,14 @@ DOORS = [
         "order": [2, 1, 0],
         "order_text": "Ghép NGƯỢC: chìa 3 → chìa 2 → chìa 1.",
         "questions": [
-            {"q": "Điền số tiếp theo: 2, 6, 12, 20, 30, ?", "a": ["42"],
+            {"q": "Điền số tiếp theo: 2, 6, 12, 20, 30, ?",
+             "a": "42", "w": ["36", "40", "44"],
              "digit": 3, "hint": "Hiệu giữa các số liên tiếp: 4, 6, 8, 10..."},
-            {"q": "Có một từ trong từ điển luôn được 'viết sai'. Từ đó là gì?", "a": ["sai"],
+            {"q": "Có một từ trong từ điển luôn được 'viết sai'. Từ đó là gì?",
+             "a": "Sai", "w": ["Đúng", "Chính tả", "Từ điển"],
              "digit": 8, "hint": "Chính câu hỏi đã chứa đáp án."},
-            {"q": "Giải mã (mỗi chữ cái lùi 1 vị trí trong bảng chữ cái): EPPS", "a": ["door"],
+            {"q": "Giải mã (mỗi chữ cái lùi 1 vị trí trong bảng chữ cái): EPPS",
+             "a": "DOOR", "w": ["DOOM", "FOOT", "DEER"],
              "digit": 5, "hint": "E lùi 1 vị trí là D."},
         ],
     },
@@ -54,11 +61,14 @@ DOORS = [
         "order": [1, 0, 2],
         "order_text": "Ghép chìa 2 → chìa 1 → chìa 3.",
         "questions": [
-            {"q": "Một người đi bộ 3 km/giờ. Sau 2 giờ 30 phút đi được bao nhiêu km?", "a": ["7.5"],
+            {"q": "Một người đi bộ 3 km/giờ. Sau 2 giờ 30 phút đi được bao nhiêu km?",
+             "a": "7,5 km", "w": ["6 km", "7 km", "8 km"],
              "digit": 9, "hint": "3 × 2,5"},
-            {"q": "Điền số tiếp theo: 1, 1, 2, 3, 5, 8, ?", "a": ["13"],
+            {"q": "Điền số tiếp theo: 1, 1, 2, 3, 5, 8, ?",
+             "a": "13", "w": ["11", "12", "14"],
              "digit": 6, "hint": "Mỗi số bằng tổng hai số đứng trước."},
-            {"q": "Ký hiệu hóa học của vàng là gì?", "a": ["au"],
+            {"q": "Ký hiệu hóa học của vàng là gì?",
+             "a": "Au", "w": ["Ag", "Fe", "Go"],
              "digit": 0, "hint": "Từ tiếng Latin 'Aurum'."},
         ],
     },
@@ -69,12 +79,14 @@ DOORS = [
         "order_text": "Ghép chìa 2 → chìa 3 → chìa 1.",
         "questions": [
             {"q": "Mình có thành phố nhưng không có nhà, có núi nhưng không có cây, có sông nhưng không có nước. Mình là gì?",
-             "a": ["ban do", "map", "cai ban do"], "digit": 2, "hint": "Bạn dùng nó để tìm đường."},
-            {"q": "Số nhị phân 1011 bằng số thập phân nào?", "a": ["11"],
+             "a": "Bản đồ", "w": ["Giấc mơ", "Bức ảnh", "Cuốn sách"],
+             "digit": 2, "hint": "Bạn dùng nó để tìm đường."},
+            {"q": "Số nhị phân 1011 bằng số thập phân nào?",
+             "a": "11", "w": ["9", "10", "13"],
              "digit": 7, "hint": "8 + 0 + 2 + 1"},
             {"q": "Tôi nói mà không có miệng, nghe mà không có tai, chỉ sống nhờ không khí. Tôi là gì?",
-             "a": ["tieng vang", "vang", "echo", "tieng doi"], "digit": 3,
-             "hint": "Hét vào hang núi sẽ nghe thấy tôi."},
+             "a": "Tiếng vang", "w": ["Cơn gió", "Cái loa", "Bóng ma"],
+             "digit": 3, "hint": "Hét vào hang núi sẽ nghe thấy tôi."},
         ],
     },
     {
@@ -84,24 +96,32 @@ DOORS = [
         "order_text": "Ghép chìa 3 → chìa 1 → chìa 2.",
         "questions": [
             {"q": "Tôi bay mà không có cánh, khóc mà không có mắt. Tôi là gì?",
-             "a": ["may", "dam may", "may den", "dam may den"], "digit": 1, "hint": "Nhìn lên trời khi sắp mưa."},
+             "a": "Đám mây", "w": ["Con chim", "Máy bay", "Cái bóng"],
+             "digit": 1, "hint": "Nhìn lên trời khi sắp mưa."},
             {"q": "Trong cuộc đua, bạn vượt qua người đang đứng thứ 2. Giờ bạn thứ mấy?",
-             "a": ["2", "hai", "thu 2", "thu hai"], "digit": 9, "hint": "Bạn thế chỗ người đó."},
-            {"q": "Trong game Doors, thực thể nháy đèn rồi lao qua cực nhanh tên là gì? (tiếng Anh, 1 từ)",
-             "a": ["rush"], "digit": 4, "hint": "Nó bắt đầu bằng chữ R."},
+             "a": "Thứ 2", "w": ["Thứ 1", "Thứ 3", "Thứ 4"],
+             "digit": 9, "hint": "Bạn thế chỗ người đó."},
+            {"q": "Trong game Doors, thực thể nháy đèn rồi lao qua cực nhanh tên là gì?",
+             "a": "Rush", "w": ["Seek", "Figure", "Screech"],
+             "digit": 4, "hint": "Nó bắt đầu bằng chữ R."},
         ],
     },
 ]
 
+MUSIC_FILE = "doors-roblox-ost-elevator-jam-made-with-Voicemod.mp3"
 
-def normalize(text: str) -> str:
-    """Bỏ dấu, viết thường (khớp với hàm norm() bên JS)."""
-    text = text.strip().lower().replace("đ", "d")
-    text = unicodedata.normalize("NFD", text)
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    text = text.replace(",", ".")
-    text = re.sub(r"[^a-z0-9. ]", "", text)
-    return re.sub(r"\s+", " ", text).strip()
+
+@st.cache_data(show_spinner=False)
+def load_music() -> str:
+    """Đọc file mp3 (cùng thư mục với app.py) và nhúng vào game dạng data-URI."""
+    base = Path(__file__).resolve().parent
+    p = base / MUSIC_FILE
+    if not p.exists():
+        found = sorted(base.glob("*.mp3"))
+        if not found:
+            return ""
+        p = found[0]
+    return "data:audio/mpeg;base64," + base64.b64encode(p.read_bytes()).decode()
 
 
 def build_data() -> str:
@@ -109,8 +129,9 @@ def build_data() -> str:
     for d in DOORS:
         out.append({
             "name": d["name"], "intro": d["intro"], "order": d["order"], "order_text": d["order_text"],
+            # o[0] luôn là đáp án đúng; phía JS sẽ xáo thứ tự A/B/C/D
             "questions": [
-                {"q": q["q"], "a": [normalize(x) for x in q["a"]], "digit": q["digit"], "hint": q["hint"]}
+                {"q": q["q"], "o": [q["a"]] + q["w"], "digit": q["digit"], "hint": q["hint"]}
                 for q in d["questions"]
             ],
         })
@@ -126,8 +147,27 @@ GAME_HTML = r"""
 <head>
 <meta charset="utf-8">
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:Georgia,serif;color:#eee;user-select:none}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:Georgia,serif;color:#eee;user-select:none}
+  /* Khung 16:9: #stage luôn giữ tỉ lệ 16:9 (letterbox), #ui là lớp giao diện thiết kế ở 1280x720 rồi scale theo khung */
+  #stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);overflow:hidden;background:#000}
   #c{position:absolute;inset:0}
+  #c canvas{display:block}
+  #ui{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;overflow:hidden;pointer-events:none}
+  .ov,#modal,#sl,#fs,button,input{pointer-events:auto}
+  #fs{position:absolute;top:8px;right:10px;z-index:30;padding:2px 10px;font-size:20px;margin:0;opacity:.75}
+  #fs:hover{opacity:1}
+  #musichint{display:none;margin-top:14px;font-size:14px;color:#8a8070;animation:mh 1.6s infinite}
+  @keyframes mh{0%,100%{opacity:.35}50%{opacity:1}}
+  .row{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0}
+  .row input[type=range]{width:320px;accent-color:#b3141a}
+  .sq{width:42px;padding:6px 0;font-size:20px}
+  #settings .hw{text-align:center;width:600px}
+  #ql{color:#ffd86b;font-size:19px;margin:4px 0}
+  #qd{font-size:13px;color:#9a9080;margin:4px auto;max-width:520px}
+  #opts{display:none;flex-direction:column;gap:8px;margin-bottom:8px}
+  .opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font-size:17px;padding:10px 14px;margin:0;letter-spacing:0;box-sizing:border-box}
+  .opt b{display:inline-block;flex:none;min-width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:#7a2a2a;color:#ffd86b}
+  .opt.bad{opacity:.38;text-decoration:line-through;cursor:not-allowed;background:#1c0808;border-color:#4a2a2a;box-shadow:none}
   .ov{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
       background:radial-gradient(ellipse at center,rgba(30,8,8,.88),rgba(0,0,0,.97));text-align:center;padding:20px;z-index:20;overflow:auto}
   .ov h1{font-size:64px;letter-spacing:14px;margin:0 0 18px;color:#b3141a;text-shadow:0 0 18px #600,0 0 4px #000}
@@ -172,7 +212,7 @@ GAME_HTML = r"""
   @keyframes pl{0%,100%{opacity:.25}50%{opacity:1}}
   #modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
          background:rgba(0,0,0,.65);z-index:15}
-  #box{background:#150d08;border:2px solid #7a2a2a;border-radius:8px;padding:22px;width:min(520px,86%);
+  #box{background:#150d08;border:2px solid #7a2a2a;border-radius:8px;padding:22px;width:min(640px,86%);
        text-align:center;box-shadow:0 0 40px #300}
   #mt{color:#c9a050;font-size:22px;margin-bottom:10px}
   #mq{font-size:18px;line-height:1.5;margin-bottom:12px}
@@ -182,11 +222,12 @@ GAME_HTML = r"""
 </style>
 </head>
 <body>
-<div id="c"></div>
+<div id="stage"><div id="c"></div><div id="ui">
 <div id="vig"></div><canvas id="grain"></canvas><div id="lowhp"></div>
 <div id="cross"></div>
 <div id="hud"><div id="dn"></div><div id="hp"></div><div id="hn"></div><div id="ks"></div><div id="ot"></div><div id="sl"></div></div>
-<div id="help">WASD / ←→: di chuyển · Kéo chuột: nhìn · Shift: Shift Lock · Giữ Space: chạy · E: tương tác · Esc: đóng</div>
+<div id="help">WASD / ←→: di chuyển · Kéo chuột: nhìn · Shift: Shift Lock · Giữ Space: chạy · E: tương tác · A/B/C/D: chọn đáp án · Esc: đóng</div>
+<button id="fs" title="Toàn màn hình">⛶</button>
 <div id="prompt"></div>
 <div id="banner"></div>
 <div id="whisper"></div>
@@ -197,6 +238,7 @@ GAME_HTML = r"""
 
 <div id="modal"><div id="box">
   <div id="mt"></div><div id="mq"></div>
+  <div id="opts"></div>
   <input id="mi" autocomplete="off" spellcheck="false">
   <div id="fb"></div>
   <button id="b1">Trả lời</button><button id="b2">💡 Gợi ý</button><button id="b3">Đóng (Esc)</button>
@@ -207,8 +249,23 @@ GAME_HTML = r"""
   <div class="mb">
     <button id="start">▶ CHƠI</button>
     <button id="how">📖 HƯỚNG DẪN</button>
-    <button id="qual">⚙️ Chất lượng: Cao</button>
+    <button id="settingsBtn">⚙️ CÀI ĐẶT</button>
   </div>
+  <p id="musichint">🔊 Bấm vào bất kỳ đâu để bật nhạc</p>
+</div>
+
+<div id="settings" class="ov">
+  <h1 style="font-size:40px;letter-spacing:8px">CÀI ĐẶT</h1>
+  <div class="hw">
+    <h3>🖥️ Đồ họa</h3>
+    <div class="row"><button id="gLow">THẤP</button><button id="gHigh">CAO</button></div>
+    <div class="row"><button id="qm" class="sq">−</button><input id="qr" type="range" min="1" max="10" step="1" value="8"><button id="qp" class="sq">+</button></div>
+    <div id="ql"></div>
+    <p id="qd"></p>
+    <h3>🔊 Âm lượng nhạc menu</h3>
+    <div class="row"><input id="vr" type="range" min="0" max="100" step="5" value="60"><span id="vv">60%</span></div>
+  </div>
+  <button id="sback">← Quay lại</button>
 </div>
 
 <div id="howto" class="ov">
@@ -218,16 +275,17 @@ GAME_HTML = r"""
     <ul>
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc phím mũi tên: di chuyển / xoay</li>
       <li><b>Kéo chuột</b>: nhìn xung quanh</li>
-      <li><kbd>Shift</kbd>: bật / tắt <b>Shift Lock</b> (khóa chuột vào giữa màn hình để nhìn tự do, bấm lại để nhả)</li>
+      <li><kbd>Shift</kbd>: bật / tắt <b>Shift Lock</b> (khóa chuột vào giữa màn hình để nhìn tự do, bấm lại để nhả). Nếu trình duyệt không cho khóa chuột, hãy đưa chuột sang mép trái/phải/trên/dưới để xoay camera</li>
+      <li><kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> hoặc bấm chuột: chọn đáp án khi trả lời câu hỏi</li>
       <li>Giữ <kbd>Space</kbd>: chạy</li>
       <li><kbd>E</kbd>: tương tác (xem manh mối, mở cửa, trốn vào tủ / gầm giường)</li>
       <li><kbd>Esc</kbd>: đóng bảng câu hỏi</li>
     </ul>
     <h3>🔑 Mục tiêu</h3>
     <ul>
-      <li>Mỗi phòng có <b>3 manh mối</b> phát sáng. Giải đố để lấy 3 chữ số (chìa khóa).</li>
+      <li>Mỗi phòng có <b>3 manh mối</b> phát sáng. Trả lời <b>câu hỏi trắc nghiệm A/B/C/D</b> để lấy 3 chữ số (chìa khóa).</li>
       <li>Ghép các chữ số theo đúng thứ tự gợi ý rồi nhập mật mã vào <b>cánh cửa</b> để sang phòng tiếp theo.</li>
-      <li>Có 5 cánh cửa. Sai đáp án hoặc mật mã sẽ mất 1 ❤️ (có 3 ❤️).</li>
+      <li>Có 5 cánh cửa. Chọn sai đáp án hoặc nhập sai mật mã sẽ mất 1 ❤️ (có 3 ❤️).</li>
     </ul>
     <h3>👻 Con ma</h3>
     <ul>
@@ -247,15 +305,21 @@ GAME_HTML = r"""
 <div id="win" class="ov"><h1 style="color:#d9b45a">THOÁT ĐƯỢC!</h1><p>Bạn đã vượt qua cả 5 cánh cửa... lần này.</p>
   <div><button id="again">🔄 Chơi lại</button><button id="tomenu2">🏠 Menu</button></div></div>
 
+</div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
 const DOORS = __DATA__;
+const MUSIC_SRC = "__MUSIC__";
 const MAX_HP=3, HINTS0=5, RH=4;
 const SIZES=[[18,26],[20,28],[22,30],[22,32],[24,34]];
 let RW=18, RD=26;
 const $=id=>document.getElementById(id);
-let HQ=true;
+function loadNum(k,d,lo,hi){try{const v=parseInt(localStorage.getItem(k));return(v>=lo&&v<=hi)?v:d;}catch(e){return d;}}
+function saveNum(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+let Q=loadNum('doors_q',8,1,10), HQ=Q>=6;       // mức đồ họa 1-10 (<=5: Thấp, >=6: Cao)
+let STW=1280, STH=720, mouseX=0, mouseY=0, mouseIn=false, optOrder=[], wrongSet={}, lockFailShown=false;
+const pr=()=>Math.max(.5,Math.min(window.devicePixelRatio||1,.55+Q*.15));
 let hp=MAX_HP, hints=HINTS0, door=0, solved=[false,false,false], hintShown={};
 let state='menu', modalOpen=false, modalMode='q', modalIdx=0, hidden=false, doorOpen=false, transitioning=false;
 let yaw=0, pitch=0, dragging=false, shake=0, bob=0, bannerT=null, cur=null, curSpot=null, spots=[];
@@ -266,8 +330,8 @@ const gh={phase:'idle',t:0,t0:1,x:0,z:0,alpha:0,peek:0,face:0,step:0,ux:0,uz:1};
 
 // ---------- Renderer / Scene ----------
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(pr());
+renderer.setSize(1280,720);
 renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.3;
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 $('c').appendChild(renderer.domElement);
@@ -275,9 +339,19 @@ const canvas=renderer.domElement;
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x030101);
 scene.fog=new THREE.FogExp2(0x050202,0.045);
-const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,0.1,70);
+const camera=new THREE.PerspectiveCamera(72,16/9,0.1,70);
 camera.rotation.order='YXZ';
 scene.add(camera);
+// Khung 16:9 luôn nằm gọn trong màn hình (letterbox), giao diện scale theo khung
+const stage=$('stage'), ui=$('ui');
+function fit(){
+  const W=innerWidth,H=innerHeight; let w=W,h=Math.round(W*9/16);
+  if(h>H){h=H;w=Math.round(H*16/9);}
+  STW=w;STH=h; stage.style.width=w+'px'; stage.style.height=h+'px';
+  ui.style.transform='scale('+(w/1280)+')';
+  renderer.setSize(w,h); camera.aspect=16/9; camera.updateProjectionMatrix();
+}
+fit();
 
 // Đèn pin
 const spot=new THREE.SpotLight(0xfff0cc,2.1,24,Math.PI/5.2,0.5,1.1);
@@ -726,8 +800,6 @@ function whisper(txt){const w=$('whisper');w.textContent=txt||WH[Math.floor(Math
   w.style.left=(8+Math.random()*60)+'%';w.style.top=(15+Math.random()*60)+'%';w.style.opacity=.8;setTimeout(()=>w.style.opacity=0,2400);noise(1.2,.05);}
 
 // ---------- Tiện ích UI ----------
-function norm(s){return s.trim().toLowerCase().replace(/đ/g,'d').normalize('NFD').replace(/[̀-ͯ]/g,'')
-  .replace(/,/g,'.').replace(/[^a-z0-9. ]/g,'').replace(/\s+/g,' ').trim();}
 function banner(t,ms){const b=$('banner');b.textContent=t;b.style.opacity=1;clearTimeout(bannerT);
   bannerT=setTimeout(()=>b.style.opacity=0,ms||2500);}
 function updateHud(){
@@ -742,23 +814,35 @@ function updateHud(){
   $('sl').className=shiftLock?'on':'';
   $('lowhp').className=(hp===1&&state==='play')?'pulse':'';
 }
-// Shift Lock: khóa chuột (pointer lock). Nếu trình duyệt không cho khóa thì vẫn nhìn tự do theo chuyển động chuột.
-function lockPtr(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>{});}catch(e){}}
+// Shift Lock: khóa chuột (pointer lock). Nếu trình duyệt/iframe không cho khóa thì dùng chế độ dự phòng:
+// chuột vẫn hiện (hình +) và camera tự xoay khi đưa chuột ra mép khung -> chuột không bao giờ "lòi" ra ngoài màn hình.
+function lockFail(){
+  if(shiftLock&&state==='play'&&!lockFailShown){lockFailShown=true;
+    banner('🔒 Shift Lock dự phòng: đưa chuột sang mép khung để xoay camera.\nBấm vào màn hình để thử khóa chuột lại.',3800);}
+  setCursor();
+}
+function lockPtr(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(lockFail);}catch(e){lockFail();}}
 function unlockPtr(){expectUnlock=true;try{document.exitPointerLock();}catch(e){}setTimeout(()=>{expectUnlock=false;},250);}
+function setCursor(){
+  const want=shiftLock&&state==='play'&&!modalOpen;
+  canvas.style.cursor=want?(document.pointerLockElement===canvas?'none':'crosshair'):'default';
+}
 function syncLock(){
   const want=shiftLock&&state==='play'&&!modalOpen;
   if(want&&document.pointerLockElement!==canvas) lockPtr();
   else if(!want&&document.pointerLockElement===canvas) unlockPtr();
-  canvas.style.cursor=want?'none':'default';
+  setCursor();
   if(state!=='menu') updateHud();
 }
 function toggleSL(){
-  shiftLock=!shiftLock; syncLock(); updateHud();
+  shiftLock=!shiftLock; lockFailShown=false; syncLock(); updateHud();
   banner(shiftLock?'🔒 Shift Lock: BẬT — chuột được khóa, nhìn tự do':'🔓 Shift Lock: TẮT — kéo chuột để nhìn',1800);
 }
 document.addEventListener('pointerlockchange',()=>{
   if(!document.pointerLockElement&&shiftLock&&!expectUnlock&&state==='play'&&!modalOpen){shiftLock=false;syncLock();updateHud();}
+  setCursor();
 });
+document.addEventListener('pointerlockerror',lockFail);
 $('sl').onclick=()=>{if(state==='play'&&!modalOpen)toggleSL();};
 
 // grain
@@ -779,34 +863,48 @@ function gameOver(msg){
 }
 
 // ---------- Modal ----------
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function openModal(){modalOpen=true;syncLock();$('modal').style.display='flex';$('fb').textContent='';
-  setTimeout(()=>$('mi').focus(),30);}
+  if(modalMode==='code') setTimeout(()=>$('mi').focus(),30);}
 function closeModal(silent){modalOpen=false;$('modal').style.display='none';$('mi').value='';keys={};
   if(!silent) syncLock();}
 function openQ(i){
   const q=DOORS[door].questions[i]; modalMode='q'; modalIdx=i;
   $('mt').textContent='📜 Manh mối '+(i+1); $('mq').textContent=q.q; $('b2').style.display='inline-block';
+  $('mi').style.display='none'; $('b1').style.display='none';
+  optOrder=shuffle([0,1,2,3]); wrongSet={};            // q.o[0] là đáp án đúng
+  const box=$('opts'); box.innerHTML=''; box.style.display='flex';
+  optOrder.forEach((oi,k)=>{
+    const b=document.createElement('button'); b.className='opt';
+    const l=document.createElement('b'); l.textContent='ABCD'[k];
+    const t=document.createElement('span'); t.textContent=q.o[oi];
+    b.appendChild(l); b.appendChild(t); b.onclick=()=>choose(k); box.appendChild(b);
+  });
   openModal(); if(hintShown[door+'-'+i]) $('fb').textContent='💡 '+q.hint;
+}
+function choose(k){
+  if(!modalOpen||modalMode!=='q'||wrongSet[k]) return;
+  const q=DOORS[door].questions[modalIdx];
+  if(optOrder[k]===0){
+    solved[modalIdx]=true; sGood(); closeModal(); refreshClues(); updateHud();
+    banner('🔑 Đúng! Chìa khóa '+(modalIdx+1)+' = '+q.digit+(solved.every(Boolean)?'\nĐã đủ chìa! Hãy ra mở cửa.':''),3000);
+  } else {
+    wrongSet[k]=true; $('opts').children[k].classList.add('bad'); $('fb').textContent='❌ Sai rồi!';
+    damage('Một thực thể tấn công bạn!');
+  }
 }
 function openCode(){
   const D=DOORS[door]; modalMode='code';
   $('mt').textContent='🔐 Ổ khóa'; $('mq').textContent='Nhập mật mã '+D.questions.length+' chữ số. '+D.order_text;
-  $('b2').style.display='none'; openModal();
+  $('b2').style.display='none'; $('opts').style.display='none'; $('mi').style.display=''; $('b1').style.display=''; openModal();
 }
 function submit(){
+  if(modalMode!=='code') return;
   const v=$('mi').value; if(!v.trim()) return;
   const D=DOORS[door];
-  if(modalMode==='q'){
-    const q=D.questions[modalIdx];
-    if(q.a.includes(norm(v))){
-      solved[modalIdx]=true; sGood(); closeModal(); refreshClues(); updateHud();
-      banner('🔑 Đúng! Chìa khóa '+(modalIdx+1)+' = '+q.digit+(solved.every(Boolean)?'\nĐã đủ chìa! Hãy ra mở cửa.':''),3000);
-    } else { $('fb').textContent='❌ Sai rồi!'; $('mi').value=''; damage('Một thực thể tấn công bạn!'); }
-  } else {
-    const code=D.order.map(i=>D.questions[i].digit).join('');
-    if(v.trim()===code){ closeModal(); doorOpen=true; sGood(); tone(70,1.2,'sawtooth',.12,40); banner('🔓 Cửa đã mở! Hãy bước vào ánh sáng...',3000); }
-    else { $('fb').textContent='❌ Mật mã sai!'; $('mi').value=''; damage('Ổ khóa phóng điện vào bạn!'); }
-  }
+  const code=D.order.map(i=>D.questions[i].digit).join('');
+  if(v.trim()===code){ closeModal(); doorOpen=true; sGood(); tone(70,1.2,'sawtooth',.12,40); banner('🔓 Cửa đã mở! Hãy bước vào ánh sáng...',3000); }
+  else { $('fb').textContent='❌ Mật mã sai!'; $('mi').value=''; damage('Ổ khóa phóng điện vào bạn!'); }
 }
 $('b1').onclick=submit; $('b3').onclick=()=>closeModal();
 $('b2').onclick=()=>{
@@ -824,16 +922,64 @@ function startRoom(){
   ghostTimer=(door===0?38:28)+Math.random()*24; updateHud();
   banner('CỬA '+(door+1)+': '+DOORS[door].name+'\n'+DOORS[door].intro,4500);
 }
-function showOnly(id){['menu','howto','over','win'].forEach(i=>$(i).style.display=(i===id?'flex':'none'));}
-function resetGame(){hp=MAX_HP;hints=HINTS0;door=0;hintShown={};state='play';ambience();
+function showOnly(id){['menu','howto','settings','over','win'].forEach(i=>$(i).style.display=(i===id?'flex':'none'));}
+function resetGame(){musicStop();hp=MAX_HP;hints=HINTS0;door=0;hintShown={};state='play';ambience();
   camera.fov=72;camera.updateProjectionMatrix();$('scare').style.display='none';
   showOnly(''); startRoom(); syncLock();}
-function toMenu(){state='menu';closeModal(true);syncLock();parkGhost();showOnly('menu');buildRoom();camera.position.set(0,1.6,RD/2-2);yaw=0;pitch=0;}
+function toMenu(){state='menu';closeModal(true);syncLock();parkGhost();showOnly('menu');buildRoom();camera.position.set(0,1.6,RD/2-2);yaw=0;pitch=0;musicStart();}
 $('start').onclick=resetGame; $('retry').onclick=resetGame; $('again').onclick=resetGame;
 $('tomenu').onclick=toMenu; $('tomenu2').onclick=toMenu;
 $('how').onclick=()=>showOnly('howto'); $('hback').onclick=()=>showOnly('menu');
-$('qual').onclick=()=>{HQ=!HQ;$('qual').textContent='⚙️ Chất lượng: '+(HQ?'Cao':'Thấp');
-  renderer.setPixelRatio(HQ?Math.min(window.devicePixelRatio||1,2):1);renderer.setSize(innerWidth,innerHeight);buildRoom();};
+// ----- Cài đặt đồ họa (kiểu Roblox: thanh trượt 1-10; 1-5 = Thấp, 6-10 = Cao) -----
+function updateSettingsUI(){
+  $('qr').value=Q;
+  $('ql').textContent='Mức đồ họa: '+Q+' / 10 — '+(Q>=6?'CAO':'THẤP');
+  $('qd').textContent=Q>=6
+    ?'Cao: bóng đổ động, độ phân giải đầy đủ, nhiễu hạt phim và bụi bay. Đẹp hơn nhưng cần máy khỏe.'
+    :'Thấp: tắt bóng đổ, giảm độ phân giải, tắt nhiễu hạt và bụi. Mượt hơn trên máy yếu.';
+  $('gLow').style.boxShadow=Q<=5?'0 0 10px #a00':'none'; $('gHigh').style.boxShadow=Q>=6?'0 0 10px #a00':'none';
+}
+function applyQuality(noBuild){
+  HQ=Q>=6;
+  renderer.setPixelRatio(pr()); renderer.setSize(STW,STH);
+  [[spot,Q>=9?1024:512],[lamp,Q>=9?512:256]].forEach(a=>{
+    if(a[0].shadow.map){a[0].shadow.map.dispose();a[0].shadow.map=null;} a[0].shadow.mapSize.set(a[1],a[1]);});
+  $('grain').style.display=HQ?'block':'none'; dust.visible=HQ;
+  gMats.forEach(m=>{m.needsUpdate=true;});
+  saveNum('doors_q',Q); updateSettingsUI();
+  if(!noBuild) buildRoom();
+}
+$('settingsBtn').onclick=()=>{showOnly('settings');updateSettingsUI();};
+$('sback').onclick=()=>showOnly('menu');
+$('qr').oninput=()=>{Q=+$('qr').value;updateSettingsUI();};
+$('qr').onchange=()=>{Q=+$('qr').value;applyQuality();};
+$('qm').onclick=()=>{Q=Math.max(1,Q-1);applyQuality();};
+$('qp').onclick=()=>{Q=Math.min(10,Q+1);applyQuality();};
+$('gLow').onclick=()=>{Q=3;applyQuality();};
+$('gHigh').onclick=()=>{Q=10;applyQuality();};
+
+// ----- Nhạc menu -----
+const bgm=new Audio(); bgm.loop=true; bgm.preload='auto'; if(MUSIC_SRC) bgm.src=MUSIC_SRC;
+let musicVol=loadNum('doors_vol',60,0,100)/100, fadeI=null;
+$('vr').value=Math.round(musicVol*100); $('vv').textContent=Math.round(musicVol*100)+'%';
+function fadeTo(v,done){
+  clearInterval(fadeI);
+  fadeI=setInterval(()=>{const d=v-bgm.volume;
+    if(Math.abs(d)<.03){bgm.volume=v;clearInterval(fadeI);if(done)done();}
+    else bgm.volume=Math.max(0,Math.min(1,bgm.volume+Math.sign(d)*.03));},40);
+}
+function musicStart(){
+  if(!MUSIC_SRC||state!=='menu') return;
+  if(bgm.paused) bgm.volume=0;
+  const p=bgm.play();
+  const ok=()=>{$('musichint').style.display='none'; if(state==='menu') fadeTo(musicVol); else bgm.pause();};
+  const blocked=()=>{$('musichint').style.display='block';};     // trình duyệt chặn tự phát -> chờ người chơi bấm
+  if(p&&p.then) p.then(ok).catch(blocked); else ok();
+}
+function musicStop(){ $('musichint').style.display='none'; fadeTo(0,()=>bgm.pause()); }
+$('vr').oninput=()=>{musicVol=+$('vr').value/100;$('vv').textContent=$('vr').value+'%';saveNum('doors_vol',$('vr').value);
+  if(!bgm.paused){clearInterval(fadeI);bgm.volume=musicVol;}};
+['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{if(state==='menu'&&bgm.paused)musicStart();},true));
 function nextRoom(){
   transitioning=true; $('fade').style.opacity=1;
   setTimeout(()=>{
@@ -976,22 +1122,37 @@ function updScare(dt){
 
 // ---------- Điều khiển ----------
 addEventListener('keydown',e=>{
-  if(modalOpen){ if(e.code==='Escape') closeModal(); return; }
+  if(modalOpen){
+    if(e.code==='Escape') closeModal();
+    else if(modalMode==='q'&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&(e.key||'').length===1){
+      const k='ABCD'.indexOf(e.key.toUpperCase()); if(k>=0) choose(k);
+    }
+    return;
+  }
   if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat){ if(state==='play'&&!transitioning) toggleSL(); return; }
   keys[e.code]=true;
   if(e.code==='KeyE'&&state==='play'&&!transitioning) act();
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
 });
 addEventListener('keyup',e=>{keys[e.code]=false;});
-canvas.addEventListener('mousedown',()=>{dragging=true;});
+canvas.addEventListener('mousedown',()=>{
+  dragging=!shiftLock;
+  if(shiftLock&&state==='play'&&!modalOpen&&document.pointerLockElement!==canvas) lockPtr();
+});
 addEventListener('mouseup',()=>dragging=false);
+document.documentElement.addEventListener('mouseleave',()=>{mouseIn=false;});
 addEventListener('mousemove',e=>{
+  const r=stage.getBoundingClientRect();
+  mouseX=(e.clientX-r.left)/r.width*2-1; mouseY=(e.clientY-r.top)/r.height*2-1;
+  mouseIn=Math.abs(mouseX)<=1&&Math.abs(mouseY)<=1;
   if(state!=='play'||modalOpen) return;
-  if(shiftLock||document.pointerLockElement===canvas||dragging){
+  if(document.pointerLockElement===canvas||dragging){
     yaw-=e.movementX*0.0025; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*0.0025));
   }
 });
-addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();});
+addEventListener('resize',fit);
+document.addEventListener('fullscreenchange',fit);
+$('fs').onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();}catch(e){}};
 
 function hit(x,z){for(const b of obstacles){if(x>b.x1-0.35&&x<b.x2+0.35&&z>b.z1-0.35&&z<b.z2+0.35)return true;}return false;}
 
@@ -1006,6 +1167,11 @@ function update(dt){
   if(state==='scare'){ updScare(dt); return; }
   if(state!=='play') return;
   if(!modalOpen){ if(keys.ArrowLeft) yaw+=1.8*dt; if(keys.ArrowRight) yaw-=1.8*dt; }
+  // Shift Lock dự phòng (không khóa được chuột): xoay camera theo vị trí chuột so với tâm khung
+  if(!modalOpen&&shiftLock&&document.pointerLockElement!==canvas&&mouseIn&&!dragging){
+    const dz=.18, f=v=>Math.abs(v)>dz?(v-Math.sign(v)*dz)/(1-dz):0;
+    yaw-=f(mouseX)*2.4*dt; pitch=Math.max(-1.3,Math.min(1.3,pitch-f(mouseY)*1.5*dt));
+  }
   let moving=false;
   if(!modalOpen&&!hidden&&!transitioning){
     let f=0,s=0;
@@ -1093,7 +1259,9 @@ function loop(now){
   if(shake>0){camera.rotation.z+=(Math.random()-.5)*shake;camera.rotation.x+=(Math.random()-.5)*shake*.4;shake=Math.max(0,shake-dt*.6);}
   renderer.render(scene,camera);
 }
+applyQuality(true);
 buildRoom(); camera.position.set(0,1.6,RD/2-2);
+musicStart();
 requestAnimationFrame(loop);
 })();
 </script>
@@ -1104,4 +1272,20 @@ requestAnimationFrame(loop);
 # ---------------------------------------------------------------------------
 # STREAMLIT
 # ---------------------------------------------------------------------------
-components.html(GAME_HTML.replace("__DATA__", build_data()), height=760, scrolling=False)
+# Khung game luôn 16:9 theo chiều rộng trang
+st.markdown(
+    """
+<style>
+.block-container{padding:3.2rem 1rem 0 1rem !important;max-width:100% !important;}
+iframe[title="streamlit.components.v1.html"]{
+    width:100% !important;height:auto !important;aspect-ratio:16/9;
+    max-height:calc(100vh - 4rem);border:0;background:#000;}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+_html = GAME_HTML.replace("__DATA__", build_data()).replace("__MUSIC__", load_music())
+if not load_music():
+    st.warning(f"Không tìm thấy file nhạc '{MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc ở menu.")
+components.html(_html, height=720, scrolling=False)
