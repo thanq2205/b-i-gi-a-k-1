@@ -514,34 +514,27 @@ const ghostRoot=new THREE.Group(); ghostRoot.rotation.order='YXZ'; ghostRoot.pos
 const gBody=new THREE.Group(); ghostRoot.add(gBody);
 const gArms=[], gHair=[], gMats=[]; let gHeadG, gMouth, gLight;
 (function(){
-  const skin=new THREE.MeshStandardMaterial({color:0xb4aea0,roughness:.7,emissive:0x2c2822});
-  const dk=new THREE.MeshStandardMaterial({color:0x060505,roughness:1,side:THREE.DoubleSide,emissive:0x0c0000});
-  const prof=[[0,.74],[.2,.68],[.7,.5],[1.2,.33],[1.5,.27],[1.78,.4],[2.0,.44],[2.12,.22],[2.24,.1]];
-  const lg=new THREE.LatheGeometry(prof.map(p=>new THREE.Vector2(p[1],p[0])),28), pa=lg.attributes.position;
-  for(let i=0;i<pa.count;i++){const y=pa.getY(i);if(y<.32){const a=Math.atan2(pa.getZ(i),pa.getX(i));
-    pa.setY(i,y+Math.abs(Math.sin(a*5)+Math.sin(a*11+1.3))*.3*(1-y/.32));}}
-  lg.computeVertexNormals(); gBody.add(new THREE.Mesh(lg,dk));
-  gHeadG=new THREE.Group(); gHeadG.position.set(0,2.4,0.05); gBody.add(gHeadG);
-  const hs=new THREE.Mesh(new THREE.SphereGeometry(1,28,24),skin); hs.scale.set(.27,.44,.25); gHeadG.add(hs);
-  const ft=faceTex();
-  const fm=new THREE.MeshStandardMaterial({map:ft,emissiveMap:ft,emissive:0xffffff,emissiveIntensity:.6,roughness:.8});
-  const fs=new THREE.Mesh(new THREE.SphereGeometry(1.012,28,24,Math.PI/2-.95,1.9,Math.PI*.12,Math.PI*.72),fm); fs.scale.set(.27,.44,.25); gHeadG.add(fs);
-  const gm=new THREE.MeshBasicMaterial({color:0xff1111});
-  [-1,1].forEach(s=>{const e=new THREE.Mesh(new THREE.SphereGeometry(.024,8,6),gm);e.position.set(s*.1,.15,.232);gHeadG.add(e);});
-  gMouth=new THREE.Mesh(new THREE.CircleGeometry(.1,20),new THREE.MeshBasicMaterial({color:0x000000}));
-  gMouth.position.set(0,-.2,.23); gMouth.scale.set(1.1,.4,1); gHeadG.add(gMouth);
-  for(let i=0;i<20;i++){const a=.9+i/19*(Math.PI*2-1.8),len=1.2+Math.random()*.9;
-    const g2=new THREE.Group(); g2.position.set(Math.sin(a)*.2,.2,Math.cos(a)*.18-.02);
-    const m2=new THREE.Mesh(new THREE.BoxGeometry(.014,len,.014),dk); m2.position.y=-len/2; g2.add(m2);
-    g2.rotation.z=Math.sin(a)*.12; gHeadG.add(g2); gHair.push(g2);}
-  [-1,1].forEach(s=>{const sh=new THREE.Group(); sh.position.set(s*.42,2.02,.03); gBody.add(sh);
-    const up=new THREE.Mesh(new THREE.CylinderGeometry(.045,.035,.95,6),skin); up.position.y=-.475; sh.add(up);
-    const el=new THREE.Group(); el.position.y=-.95; sh.add(el);
-    const fo=new THREE.Mesh(new THREE.CylinderGeometry(.035,.028,.95,6),skin); fo.position.y=-.475; el.add(fo);
-    const hand=new THREE.Group(); hand.position.y=-.95; el.add(hand);
-    for(let k=0;k<5;k++){const f=new THREE.Group(); f.rotation.z=(k-2)*.26; hand.add(f);
-      const fm2=new THREE.Mesh(new THREE.CylinderGeometry(.012,.004,.36,5),skin); fm2.position.y=-.18; f.add(fm2);}
-    gArms.push({sh,el,s});});
+  // Ảnh dọa 2D (hiện lúc bị bắt): vải đen kín + một khe sáng đỏ dọc
+  T('face',512,640,(g,w,h)=>{
+    g.fillStyle='#020101';g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(70,35,35,.5)';g.lineWidth=2;
+    for(let i=0;i<32;i++){const x=rnd(0,w);g.beginPath();g.moveTo(x,0);g.bezierCurveTo(x+rnd(-40,40),h*.3,x+rnd(-40,40),h*.6,x+rnd(-30,30),h);g.stroke();}
+    const sg=g.createRadialGradient(w/2,h*.5,6,w/2,h*.5,150);sg.addColorStop(0,'rgba(255,60,40,.9)');sg.addColorStop(1,'rgba(120,0,0,0)');
+    g.fillStyle=sg;g.fillRect(w/2-160,h*.5-220,320,440);
+    g.fillStyle='#ff3a28';g.beginPath();g.ellipse(w/2,h*.5,11,170,0,0,7);g.fill();
+    g.fillStyle='#ffd8c8';g.beginPath();g.ellipse(w/2,h*.5,4,135,0,0,7);g.fill();
+  });
+  // Bóng đen trùm kín, lơ lửng sát sàn, mặt chỉ có một khe sáng đỏ
+  const cloth=new THREE.MeshStandardMaterial({color:0x040303,roughness:1,side:THREE.DoubleSide,emissive:0x0a0000});
+  const prof=[[0,.95],[.35,.86],[1.0,.62],[1.7,.46],[2.05,.38],[2.14,.2],[2.18,.0]];
+  const lg=new THREE.LatheGeometry(prof.map(p=>new THREE.Vector2(p[1],p[0])),26), pa=lg.attributes.position;
+  for(let i=0;i<pa.count;i++){const y=pa.getY(i);if(y<.5){const a=Math.atan2(pa.getZ(i),pa.getX(i));
+    pa.setY(i,y+Math.abs(Math.sin(a*6)+Math.sin(a*13+1))*.14*(1-y/.5));}}
+  lg.computeVertexNormals(); gBody.add(new THREE.Mesh(lg,cloth)); gBody.position.y=.22;
+  gHeadG=new THREE.Group(); gHeadG.position.set(0,2.12,0); gBody.add(gHeadG);
+  const hood=new THREE.Mesh(new THREE.SphereGeometry(1,22,18),cloth); hood.scale.set(.42,.58,.4); hood.position.y=.1; gHeadG.add(hood);
+  gMouth=new THREE.Mesh(new THREE.PlaneGeometry(.07,1),new THREE.MeshBasicMaterial({color:0xff2a1a,side:THREE.DoubleSide}));
+  gMouth.position.set(0,.18,.4); gMouth.scale.set(1,.35,1); gHeadG.add(gMouth);
   gLight=new THREE.PointLight(0xff1a00,0,11); gLight.position.set(0,2.2,.9); gBody.add(gLight);
   const seen=new Set();
   ghostRoot.traverse(o=>{if(o.material&&!seen.has(o.material)){seen.add(o.material);o.material.transparent=true;o.material.opacity=0;gMats.push(o.material);}});
