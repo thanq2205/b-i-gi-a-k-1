@@ -1086,11 +1086,11 @@ function startGhost(){
 function ghostSpawn(){
   const c=[[0,-RD/2+2.5],[0,RD/2-2.5],[-RW/2+2.5,0],[RW/2-2.5,0]];
   let best=c[0],bd=-1; c.forEach(p=>{const d=Math.hypot(p[0]-camera.position.x,p[1]-camera.position.z);if(d>bd){bd=d;best=p;}});
-  // Cảnh xuất hiện: ma hiện ra TRƯỚC MẶT người chơi (cách ~8m, trong tầm nhìn), đứng yên nhìn chằm chằm rồi mới đuổi
+  // Cảnh xuất hiện: ma hiện ra TRƯỚC MẶT người chơi (cách ~15m, trong tầm nhìn), đứng yên nhìn chằm chằm rồi mới đuổi
   const fx=-Math.sin(yaw), fz=-Math.cos(yaw);
-  let sx=Math.max(-RW/2+1.5,Math.min(RW/2-1.5,camera.position.x+fx*8));
-  let sz=Math.max(-RD/2+1.5,Math.min(RD/2-1.5,camera.position.z+fz*8));
-  if(Math.hypot(sx-camera.position.x,sz-camera.position.z)<4.5){sx=best[0];sz=best[1];}
+  let sx=Math.max(-RW/2+1.5,Math.min(RW/2-1.5,camera.position.x+fx*15));
+  let sz=Math.max(-RD/2+1.5,Math.min(RD/2-1.5,camera.position.z+fz*15));
+  if(Math.hypot(sx-camera.position.x,sz-camera.position.z)<9){sx=best[0];sz=best[1];}
   gh.x=sx; gh.z=sz; gh.phase='reveal'; gh.t0=gh.t=4.6; gh.step=0; gh.alpha=0; gh.shr=false;
   gh.face=Math.atan2(camera.position.x-gh.x,camera.position.z-gh.z);
   noise(1.4,.3); tone(70,1.6,'sawtooth',.2,160);
@@ -1121,7 +1121,7 @@ function updGhost(dt){
     gh.t-=dt; const e=gh.t0-gh.t, px2=camera.position.x, pz2=camera.position.z;
     gh.alpha=e<1.2?Math.min(1,e/1.2)*(Math.random()<.35?.3:1):1;
     gh.face=Math.atan2(px2-gh.x,pz2-gh.z);
-    if(e>1.2&&Math.hypot(gh.x-px2,gh.z-pz2)>4.6) moveGhost(px2,pz2,1.1,dt);
+    if(e>1.2&&Math.hypot(gh.x-px2,gh.z-pz2)>10) moveGhost(px2,pz2,1.1,dt);
     shake=Math.max(shake,e>3.3?.12:.02);
     if(Math.random()<dt*2) noise(.25,.1);
     const fv=e>3.3?72-16*Math.min(1,(e-3.3)/.9):72;
