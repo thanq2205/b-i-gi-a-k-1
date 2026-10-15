@@ -175,7 +175,7 @@ GAME_HTML = r"""
   #lockbtn{position:absolute;right:16px;bottom:16px;z-index:7;width:56px;height:56px;padding:0;margin:0;border-radius:50%;
            font-size:18px;font-weight:bold;background:rgba(0,0,0,.55);border:2px solid #9a2a2a;display:none}
   #lockbtn.on{background:rgba(120,90,10,.75);border-color:#ffd86b;box-shadow:0 0 14px #a80}
-  #cross.lk{width:22px;height:22px;margin:-11px;background:transparent;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 6px #000}
+  #cross.lk{box-sizing:border-box;width:22px;height:22px;margin:-11px;background:transparent;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 6px #000}
   #cross.lk:after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:#fff}
   #musichint{display:none;margin-top:14px;font-size:14px;color:#8a8070;animation:mh 1.6s infinite}
   @keyframes mh{0%,100%{opacity:.35}50%{opacity:1}}
@@ -383,7 +383,7 @@ const SRC='<!DOCTYPE html>\n'+document.documentElement.outerHTML;   // bản sao
 function loadNum(k,d,lo,hi){try{const v=parseInt(localStorage.getItem(k));return(v>=lo&&v<=hi)?v:d;}catch(e){return d;}}
 function saveNum(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 let Q=loadNum('doors_q',8,1,10), HQ=Q>=6;       // mức đồ họa 1-10 (<=5: Thấp, >=6: Cao)
-let STW=1280, STH=720, mouseX=0, mouseY=0, mouseIn=false, optOrder=[], wrongSet={}, lockFailShown=false, lockBlocked=false, lockEver=false;
+let STW=1280, STH=720, mouseX=0, mouseY=0, mouseIn=false, optOrder=[], wrongSet={}, lockFailShown=false, lockBlocked=false, lockEver=false, lockMsgT=0;
 // Cao: độ phân giải gần đầy đủ. Thấp: render độ phân giải rất nhỏ rồi phóng to kiểu pixel (low-poly retro)
 const pr=()=>HQ?Math.max(.8,Math.min(window.devicePixelRatio||1,.55+Q*.15)):(0.28+Q*0.05);
 let RF=loadNum('doors_rf',0,0,1)===1;   // giảm hiệu ứng chớp sáng
@@ -1069,6 +1069,8 @@ function whisper(txt){const w=$('whisper');w.textContent=txt||WH[Math.floor(Math
 function banner(t,ms){const b=$('banner');b.textContent=t;b.style.opacity=1;clearTimeout(bannerT);
   bannerT=setTimeout(()=>b.style.opacity=0,ms||2500);}
 function updateHud(){
+  $('lockbtn').style.display=state==='play'?'block':'none';
+  $('lowhp').className=(hp===1&&state==='play')?'pulse':'';
   if(door>=DOORS.length) return;
   const D=DOORS[door];
   $('dn').textContent='Cửa '+(door+1)+'/5';
@@ -1089,6 +1091,11 @@ const isLocked=()=>document.pointerLockElement===canvas;
 function lockFail(){
   if(!lockEver) lockBlocked=true;        // chưa từng khóa được -> khung nhúng bị chặn
   setCursor();
+  if(!shiftLock||state!=='play'||modalOpen||gh.phase!=='idle') return;   // không đè lên cảnh báo của ma
+  const now=performance.now(); if(now-lockMsgT<3500) return; lockMsgT=now;  // promise reject + pointerlockerror -> chỉ báo 1 lần
+  banner((!lockEver&&inFrame)
+    ?'Khung nhúng (Streamlit) chặn khóa chuột.\nBấm nút TAB MỚI ở góc phải trên để dùng Shift Lock đầy đủ.'
+    :'Chưa khóa được chuột. Bấm vào màn hình để khóa lại.',3600);
 }
 function lockPtr(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(lockFail);}catch(e){lockFail();}}
 function unlockPtr(){expectUnlock=true;try{document.exitPointerLock();}catch(e){}setTimeout(()=>{expectUnlock=false;},250);}
@@ -1105,8 +1112,9 @@ function syncLock(){
   if(state!=='menu') updateHud();
 }
 function toggleSL(){
-  shiftLock=!shiftLock; lockFailShown=false; syncLock(); updateHud();
+  shiftLock=!shiftLock; lockFailShown=false; lockMsgT=0;
   banner(shiftLock?'Shift Lock: BẬT — chuột khóa ở giữa màn hình':'Shift Lock: TẮT — giữ chuột trái/phải và kéo để nhìn',1800);
+  syncLock(); updateHud();
 }
 document.addEventListener('pointerlockchange',()=>{
   if(isLocked()){lockEver=true;lockBlocked=false;}
@@ -1477,12 +1485,14 @@ addEventListener('mousemove',e=>{
   if(state!=='play'||modalOpen||gh.phase==='reveal') return;   // đoạn phim: không xoay được camera
   // Vuốt sang phải -> quay phải, sang trái -> quay trái (cả khi khóa chuột thật lẫn khi bị trình duyệt chặn)
   if(isLocked()||dragging||shiftLock){
+    if(Math.abs(e.movementX)>250||Math.abs(e.movementY)>250) return;   // Chrome đôi khi báo delta khổng lồ lúc vừa khóa chuột
     yaw-=e.movementX*0.0025; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*0.0025));
   }
 });
 addEventListener('resize',fit);
 document.addEventListener('fullscreenchange',fit);
 $('lockbtn').onclick=()=>{if(state==='play'&&!modalOpen&&!transitioning)toggleSL();};
+document.querySelectorAll('#ui button').forEach(b=>b.addEventListener('click',()=>b.blur()));   // nhả focus để Space/Enter không bấm lại nút
 $('nt').style.display=inFrame?'block':'none';
 $('nt').onclick=()=>{try{
   const w=window.open(URL.createObjectURL(new Blob([SRC],{type:'text/html'})),'_blank');
