@@ -221,22 +221,22 @@ GAME_HTML = r"""
          background:rgba(0,0,0,.65);z-index:15}
   /* Bảng câu hỏi = một tờ giấy cũ */
   /* Bảng câu hỏi = tờ giấy nhàu, rách mép, chữ viết tay bằng bút chì (kiểu mấy tờ giấy trong Doors) */
-  #box{position:relative;color:#2b2722;border:0;padding:44px 52px 40px;width:min(600px,82%);
-       text-align:center;transform:rotate(-1.2deg);
+  #box{position:relative;color:#16130f;border:0;padding:36px 48px 34px;width:min(760px,90%);
+       text-align:center;transform:rotate(-1deg);
        font-family:'Segoe Print','Bradley Hand','Chalkboard SE','Comic Sans MS','Marker Felt',cursive;
        background:#b3a78c;background-size:100% 100%;
        clip-path:polygon(1% 3%,12% 0,27% 2.5%,44% .5%,63% 2%,82% 0,99% 2%,100% 20%,98.5% 38%,100% 57%,98% 76%,100% 98%,84% 100%,66% 98%,48% 100%,30% 98.5%,12% 100%,0 97%,1.5% 78%,0 58%,2% 38%,0 18%)}
-  #mt{color:#7a1212;font-size:22px;margin-bottom:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;
-      text-shadow:0 0 1px rgba(80,0,0,.7)}
-  #mq{font-size:19px;line-height:1.55;margin-bottom:16px;color:#2b2722;text-transform:uppercase;letter-spacing:1px;
-      text-shadow:0 0 1px rgba(0,0,0,.65),1px 1px 0 rgba(0,0,0,.12)}
+  #mt{color:#8a0f0f;font-size:30px;margin-bottom:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-shadow:none}
+  #mq{font-size:27px;line-height:1.4;margin-bottom:18px;color:#16130f;font-weight:900;text-transform:uppercase;letter-spacing:.5px;
+      text-shadow:none;-webkit-font-smoothing:antialiased}
   #mi{width:80%;padding:9px;font-size:22px;border:0;border-bottom:3px solid #2b2722;border-radius:0;
       background:rgba(255,255,255,.14);color:#2b2722;text-align:center;outline:none;font-family:inherit;letter-spacing:4px}
-  #fb{min-height:24px;margin:10px 0;color:#7a1212;font-weight:bold;text-transform:uppercase;letter-spacing:1px}
-  #box button{background:rgba(40,32,20,.06);color:#2b2722;border:2px solid #2b2722;border-radius:3px 8px 4px 7px;
-      box-shadow:none;font-family:inherit;text-transform:uppercase;text-shadow:0 0 1px rgba(0,0,0,.5)}
-  #box button:hover{background:#2b2722;color:#d8ccb0;box-shadow:none;text-shadow:none}
-  #box .opt b{background:transparent;color:#7a1212;border:2px solid #7a1212;text-shadow:none}
+  #fb{min-height:28px;margin:10px 0;color:#8a0f0f;font-size:21px;font-weight:900;text-transform:uppercase;letter-spacing:1px}
+  #box button{background:rgba(40,32,20,.06);color:#16130f;border:3px solid #16130f;border-radius:3px 8px 4px 7px;
+      box-shadow:none;font-family:inherit;text-transform:uppercase;text-shadow:none;font-weight:900;font-size:19px;padding:10px 22px}
+  #box button:hover{background:#16130f;color:#d8ccb0;box-shadow:none;text-shadow:none}
+  #box .opt{font-size:25px;font-weight:900;padding:11px 18px;gap:16px;letter-spacing:.5px}
+  #box .opt b{background:transparent;color:#8a0f0f;border:3px solid #8a0f0f;text-shadow:none;font-size:22px;min-width:40px;height:40px;line-height:36px}
   #box .opt.bad{opacity:.5;text-decoration:line-through;text-decoration-thickness:3px;cursor:not-allowed;background:rgba(0,0,0,.06);border-color:#7a6e55;color:#5e5543}
   #box .opt.bad:hover{background:rgba(0,0,0,.06);color:#5e5543}
 </style>
@@ -914,7 +914,7 @@ function gameOver(msg){
     [[0,0,'rgba(35,25,10,.30)'],[1.5,1.5,'rgba(255,250,235,.28)']].forEach(s=>{
       g.save();g.translate(s[0],s[1]);g.strokeStyle=s[2];g.lineWidth=1.3;g.beginPath();
       pts.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.restore();});}
-  stains(g,w,h,12,.24); noiseFx(g,w,h,30);
+  stains(g,w,h,10,.13); noiseFx(g,w,h,22);
   const vg=g.createRadialGradient(w/2,h/2,h*.25,w/2,h/2,w*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(50,35,10,.4)');
   g.fillStyle=vg;g.fillRect(0,0,w,h);
   $('box').style.backgroundImage='url('+c.toDataURL('image/jpeg',.88)+')';
