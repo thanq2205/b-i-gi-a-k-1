@@ -514,31 +514,38 @@ const ghostRoot=new THREE.Group(); ghostRoot.rotation.order='YXZ'; ghostRoot.pos
 const gBody=new THREE.Group(); ghostRoot.add(gBody);
 const gArms=[], gHair=[], gMats=[]; let gHeadG, gMouth, gLight;
 (function(){
-  // Ảnh dọa 2D (hiện lúc bị bắt): vải đen kín + một khe sáng đỏ dọc
+  // Ảnh dọa 2D (hiện lúc bị bắt): bóng đen kín + hai mắt trắng
   T('face',512,640,(g,w,h)=>{
-    g.fillStyle='#020101';g.fillRect(0,0,w,h);
-    g.strokeStyle='rgba(70,35,35,.5)';g.lineWidth=2;
-    for(let i=0;i<32;i++){const x=rnd(0,w);g.beginPath();g.moveTo(x,0);g.bezierCurveTo(x+rnd(-40,40),h*.3,x+rnd(-40,40),h*.6,x+rnd(-30,30),h);g.stroke();}
-    const sg=g.createRadialGradient(w/2,h*.5,6,w/2,h*.5,150);sg.addColorStop(0,'rgba(255,60,40,.9)');sg.addColorStop(1,'rgba(120,0,0,0)');
-    g.fillStyle=sg;g.fillRect(w/2-160,h*.5-220,320,440);
-    g.fillStyle='#ff3a28';g.beginPath();g.ellipse(w/2,h*.5,11,170,0,0,7);g.fill();
-    g.fillStyle='#ffd8c8';g.beginPath();g.ellipse(w/2,h*.5,4,135,0,0,7);g.fill();
+    g.fillStyle='#010101';g.fillRect(0,0,w,h);
+    const gl=g.createRadialGradient(w/2,h*.42,10,w/2,h*.42,230);gl.addColorStop(0,'rgba(255,255,255,.28)');gl.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=gl;g.fillRect(0,0,w,h);
+    g.fillStyle='#050505';g.beginPath();g.ellipse(w/2,h*.46,190,250,0,0,7);g.fill();
+    [-1,1].forEach(s=>{g.save();g.translate(w/2+s*78,h*.4);g.rotate(s*-.12);
+      g.fillStyle='#fff';g.beginPath();g.ellipse(0,0,40,62,0,0,7);g.fill();g.restore();});
   });
-  // Bóng đen trùm kín, lơ lửng sát sàn, mặt chỉ có một khe sáng đỏ
-  const cloth=new THREE.MeshStandardMaterial({color:0x040303,roughness:1,side:THREE.DoubleSide,emissive:0x0a0000});
-  const prof=[[0,.95],[.35,.86],[1.0,.62],[1.7,.46],[2.05,.38],[2.14,.2],[2.18,.0]];
-  const lg=new THREE.LatheGeometry(prof.map(p=>new THREE.Vector2(p[1],p[0])),26), pa=lg.attributes.position;
-  for(let i=0;i<pa.count;i++){const y=pa.getY(i);if(y<.5){const a=Math.atan2(pa.getZ(i),pa.getX(i));
-    pa.setY(i,y+Math.abs(Math.sin(a*6)+Math.sin(a*13+1))*.14*(1-y/.5));}}
-  lg.computeVertexNormals(); gBody.add(new THREE.Mesh(lg,cloth)); gBody.position.y=.22;
-  gHeadG=new THREE.Group(); gHeadG.position.set(0,2.12,0); gBody.add(gHeadG);
-  const hood=new THREE.Mesh(new THREE.SphereGeometry(1,22,18),cloth); hood.scale.set(.42,.58,.4); hood.position.y=.1; gHeadG.add(hood);
-  gMouth=new THREE.Mesh(new THREE.PlaneGeometry(.07,1),new THREE.MeshBasicMaterial({color:0xff2a1a,side:THREE.DoubleSide}));
-  gMouth.position.set(0,.18,.4); gMouth.scale.set(1,.35,1); gHeadG.add(gMouth);
-  gLight=new THREE.PointLight(0xff1a00,0,11); gLight.position.set(0,2.2,.9); gBody.add(gLight);
+  // Bóng người đen xì, dáng người, hai mắt trắng sáng
+  const blk=new THREE.MeshStandardMaterial({color:0x000000,roughness:1,emissive:0x020101});
+  const mk=(geo,x,y,z,parent)=>{const m=new THREE.Mesh(geo,blk);m.position.set(x,y,z);m.castShadow=true;(parent||gBody).add(m);return m;};
+  [-1,1].forEach(s=>mk(new THREE.CylinderGeometry(.085,.07,.98,8),s*.12,.49,0));                // chân
+  const torso=mk(new THREE.CylinderGeometry(.21,.17,.85,10),0,1.38,0); torso.scale.z=.62;      // thân
+  mk(new THREE.CylinderGeometry(.06,.07,.14,8),0,1.86,0);                                       // cổ
+  gHeadG=new THREE.Group(); gHeadG.position.set(0,2.02,0); gBody.add(gHeadG);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(1,20,16),blk); head.scale.set(.15,.19,.165); gHeadG.add(head);
+  const eyeM=new THREE.MeshBasicMaterial({color:0xffffff});
+  [-1,1].forEach(s=>{const e=new THREE.Mesh(new THREE.SphereGeometry(.036,12,10),eyeM);
+    e.scale.set(1.35,1.9,.4); e.position.set(s*.062,.02,.158); e.rotation.z=s*-.18; gHeadG.add(e);});
+  gMouth=new THREE.Object3D(); gHeadG.add(gMouth);                                              // (giữ cho hệ thống hoạt ảnh)
+  [-1,1].forEach(s=>{                                                                           // tay: vai -> khuỷu -> bàn tay
+    const sh=new THREE.Group(); sh.position.set(s*.29,1.74,0); gBody.add(sh);
+    mk(new THREE.CylinderGeometry(.055,.045,.62,8),0,-.31,0,sh);
+    const el=new THREE.Group(); el.position.y=-.62; sh.add(el);
+    mk(new THREE.CylinderGeometry(.045,.035,.62,8),0,-.31,0,el);
+    mk(new THREE.SphereGeometry(.055,8,6),0,-.66,0,el);
+    gArms.push({sh,el,s});});
+  gLight=new THREE.PointLight(0xffffff,0,9); gLight.position.set(0,2.0,1.0); gBody.add(gLight);
   const seen=new Set();
   ghostRoot.traverse(o=>{if(o.material&&!seen.has(o.material)){seen.add(o.material);o.material.transparent=true;o.material.opacity=0;gMats.push(o.material);}});
-  ghostRoot.scale.set(1.05,1.05,1.05);
+  ghostRoot.scale.set(1.12,1.12,1.12);
 })();
 function parkGhost(){$('bars').className='';if(camera.fov!==72){camera.fov=72;camera.updateProjectionMatrix();}gh.phase='idle';gh.alpha=0;gh.peek=0;ghostRoot.position.set(0,-80,0);ghostRoot.rotation.x=0;gLight.intensity=0;}
 
@@ -847,10 +854,6 @@ const inFrame=(function(){try{return window.top!==window;}catch(e){return true;}
 const isLocked=()=>document.pointerLockElement===canvas;
 function lockFail(){
   if(!lockEver) lockBlocked=true;        // chưa từng khóa được -> khung nhúng bị chặn
-  if(shiftLock&&state==='play'&&!lockFailShown){lockFailShown=true;
-    banner(lockBlocked
-      ?'🔒 Trình duyệt chặn khóa chuột trong khung này.\nBấm nút ↗ (góc phải trên) để mở game ở tab mới — Shift Lock sẽ chạy chuẩn như Roblox.'
-      :'🔒 Bấm vào màn hình để khóa chuột lại.',4800);}
   setCursor();
 }
 function lockPtr(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(lockFail);}catch(e){lockFail();}}
