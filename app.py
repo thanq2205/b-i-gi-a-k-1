@@ -111,6 +111,30 @@ DOORS = [
 MUSIC_FILE = "doors-roblox-ost-elevator-jam-made-with-Voicemod.mp3"
 PLAY_MUSIC_FILE = "05. In The House.mp3"   # nhạc nền khi đang chơi
 
+# Âm thanh bão: sấm cắt từ file "tiengsamset.mp3" (đã xử lý) + tiếng mưa lặp liền mạch.
+# Đặt 2 file này cùng thư mục với app.py. Thiếu file thì game tự dùng âm thanh tổng hợp như cũ.
+THUNDER_FILE = "thunder_fx.mp3"
+RAIN_FILE = "rain_loop.wav"
+# Bảng cắt của THUNDER_FILE: s = giây bắt đầu clip trong file, d = độ dài, c = thời điểm TIẾNG NỔ trong clip
+# (game căn c đúng vào lúc tia chớp + độ trễ), k = 'crack' (nổ gắt, dùng cho sét gần) / 'roll' (sấm cuộn, sét xa).
+THUNDER_CLIPS = [
+    {"n": "A", "k": "crack", "s": 0.0, "d": 3.07, "c": 0.08},
+    {"n": "B", "k": "crack", "s": 3.47, "d": 1.866, "c": 0.08},
+    {"n": "C", "k": "crack", "s": 5.736, "d": 1.81, "c": 0.08},
+    {"n": "D", "k": "crack", "s": 7.946, "d": 7.108, "c": 0.08},
+    {"n": "E", "k": "crack", "s": 15.454, "d": 8.08, "c": 0.08},
+    {"n": "F", "k": "crack", "s": 23.934, "d": 3.082, "c": 0.08},
+    {"n": "G", "k": "crack", "s": 27.416, "d": 2.428, "c": 0.08},
+    {"n": "I", "k": "crack", "s": 30.244, "d": 5.47, "c": 0.08},
+    {"n": "L1", "k": "crack", "s": 36.114, "d": 1.766, "c": 0.08},
+    {"n": "M", "k": "crack", "s": 38.28, "d": 4.31, "c": 0.08},
+    {"n": "N", "k": "crack", "s": 42.99, "d": 2.514, "c": 0.08},
+    {"n": "O", "k": "crack", "s": 45.904, "d": 3.952, "c": 0.08},
+    {"n": "J", "k": "roll", "s": 50.256, "d": 6.35, "c": 0.3},
+    {"n": "L2", "k": "roll", "s": 57.006, "d": 5.15, "c": 0.3},
+    {"n": "intro", "k": "roll", "s": 62.556, "d": 2.85, "c": 0.3}
+]
+
 
 def _norm(s: str) -> str:
     """So khớp tên file không phân biệt hoa/thường, dấu cách, gạch dưới, dấu chấm."""
@@ -136,6 +160,15 @@ def load_mp3(name: str, skip: str = "", fallback: bool = False) -> str:
         else:
             return ""
     return "data:audio/mpeg;base64," + base64.b64encode(p.read_bytes()).decode()
+
+
+@st.cache_data(show_spinner=False)
+def load_asset(name: str, mime: str) -> str:
+    """Đọc file âm thanh cùng thư mục với app.py -> data-URI (rỗng nếu không có)."""
+    p = Path(__file__).resolve().parent / name
+    if not p.exists():
+        return ""
+    return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
 
 
 def build_data() -> str:
@@ -617,7 +650,7 @@ function drawStorm(dt){
   g.fillStyle='rgba(120,140,180,.07)'; g.fillRect(0,0,w,h);
 }
 function thunder(near){
-  if(!amb) return;
+  if(!amb||!(state==='play'||state==='scare')) return;
   try{
     const a=ac(), t0=a.currentTime, n=Math.floor(a.sampleRate*4.2), b=a.createBuffer(1,n,a.sampleRate), x=b.getChannelData(0);
     for(let i=0;i<n;i++){const t=i/n; x[i]=(Math.random()*2-1)*Math.pow(1-t,1.25)*(.6+.4*Math.sin(t*30)+.25*Math.sin(t*71));}
@@ -638,7 +671,9 @@ function stormUpdate(dt){
     nextBolt=6+Math.random()*10; boltT=1; boltX=20+Math.random()*216;
     boltPts=[[boltX,0]]; let bx=boltX,by=0;
     while(by<130){bx+=(Math.random()-.5)*28; by+=10+Math.random()*14; boltPts.push([bx,by]);}
-    thunderIn=.15+Math.random()*1.6; thunderNear=thunderIn<1.0;
+    const near=Math.random()<.6, dly=near?.06+Math.random()*.1:1.0+Math.random()*1.6;   // gần: nổ gần như cùng lúc chớp; xa: trễ 1-2,6 giây
+    if(thunderPlay(dly,near)) thunderIn=-999; else{thunderIn=dly; thunderNear=near;}      // chưa có file -> tiếng tổng hợp cũ
+    rainSwell(near);
   }
   if(boltT>0){
     boltT=Math.max(0,boltT-dt); const e=1-boltT;
@@ -1078,8 +1113,67 @@ function ambience(){
     const wg=a.createGain();wg.gain.value=.022;s.connect(bp);bp.connect(wg);wg.connect(a.destination);s.start();
     const od=a.createOscillator(),dl=a.createBiquadFilter();droneG=a.createGain();droneG.gain.value=0;od.type='sawtooth';od.frequency.value=62;
     dl.type='lowpass';dl.frequency.value=260;od.connect(dl);dl.connect(droneG);droneG.connect(a.destination);od.start();
+    stormAudioLoad(a);
   }catch(e){}
 }
+/*STORM-AUDIO-BEGIN*/
+// ---------- Bão: mưa + sấm thật (cắt từ tiengsamset.mp3, tiếng nổ căn khớp tia chớp) ----------
+const THUNDER_SRC="__THUNDER__", RAIN_SRC="__RAIN__";
+const TCLIPS=__TCLIPS__;            // {n,k:'crack'|'roll',s:bắt đầu trong file,d:độ dài,c:thời điểm tiếng nổ trong clip}
+const RAIN_VOL=.45;
+let thBuf=null, rainBuf=null, thBus=null, rainG=null, swellG=null, rainWant=false, rainTgt=0, lastClip=-1, stormLoading=false;
+function b64buf(u){const s=atob(u.slice(u.indexOf(',')+1)),b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b.buffer;}
+function decodeBuf(a,uri){return new Promise((ok,no)=>{try{const p=a.decodeAudioData(b64buf(uri),ok,no);if(p&&p.catch)p.catch(no);}catch(e){no(e);}});}
+function stormAudioLoad(a){
+  if(stormLoading) return; stormLoading=true;
+  if(THUNDER_SRC&&TCLIPS.length) decodeBuf(a,THUNDER_SRC).then(b=>{thBuf=b;}).catch(()=>{});
+  if(RAIN_SRC) decodeBuf(a,RAIN_SRC).then(b=>{rainBuf=b;rainStart(a);}).catch(()=>{});
+}
+function rainStart(a){
+  if(rainG||!rainBuf) return;
+  rainG=a.createGain(); rainG.gain.value=rainTgt; swellG=a.createGain();
+  const lp=a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=7000; lp.Q.value=.4;      // nghe qua cửa sổ: bớt chói
+  lp.connect(swellG); swellG.connect(rainG); rainG.connect(a.destination);
+  [[0,-.55],[rainBuf.duration*.43,.55]].forEach(p=>{                      // 2 lớp lệch pha chia trái/phải cho có độ rộng
+    const s=a.createBufferSource(); s.buffer=rainBuf; s.loop=true;
+    if(a.createStereoPanner){const pn=a.createStereoPanner(); pn.pan.value=p[1]; s.connect(pn); pn.connect(lp);} else s.connect(lp);
+    s.start(0,p[0]);
+  });
+}
+function rainUpdate(){                // gọi mỗi khung hình: mưa chỉ nghe khi đang chơi, nhỏ lại khi ma xuất hiện
+  const want=(state==='play'||state==='scare'), tgt=want?(gh.phase!=='idle'?RAIN_VOL*.55:RAIN_VOL):0;
+  rainWant=want;
+  if(tgt!==rainTgt){rainTgt=tgt; if(rainG&&AC) rainG.gain.setTargetAtTime(tgt,AC.currentTime,.7);}
+}
+function rainSwell(near){             // mưa/gió dâng nhẹ ngay lúc chớp, rồi dịu lại
+  if(!swellG||!AC||!rainWant) return;
+  const t=AC.currentTime; swellG.gain.setTargetAtTime(near?1.35:1.15,t,.12); swellG.gain.setTargetAtTime(1,t+1.4,.9);
+}
+function thunderBus(a){
+  if(thBus) return thBus;
+  const c=a.createDynamicsCompressor(); c.threshold.value=-10; c.knee.value=10; c.ratio.value=6; c.attack.value=.003; c.release.value=.3;
+  c.connect(a.destination); return thBus=c;
+}
+// delay = số giây từ lúc tia chớp tới lúc tiếng NỔ vang lên. Lên lịch bằng đồng hồ âm thanh nên tiếng nổ rơi đúng mốc.
+// Trả về false nếu chưa có file (khi đó dùng tiếng tổng hợp cũ).
+function thunderPlay(delay,near){
+  if(!thBuf||!amb||!(state==='play'||state==='scare')) return false;
+  try{
+    const a=ac(); if(a.state==='suspended'&&a.resume) a.resume();
+    // gần: clip nổ gắt. xa: ưu tiên clip sấm cuộn, thỉnh thoảng dùng clip nổ nhưng làm mờ
+    let pool=[]; TCLIPS.forEach((c,i)=>{ if(i===lastClip) return; if(near?c.k==='crack':(c.k==='roll'||Math.random()<.35)) pool.push(i); });
+    if(!pool.length) pool=TCLIPS.map((c,i)=>i);
+    const i=pool[Math.floor(Math.random()*pool.length)]; lastClip=i; const c=TCLIPS[i];
+    const now=a.currentTime; let when=now+delay-c.c, off=c.s, dur=c.d;
+    if(when<now){const sk=now-when; off+=sk; dur-=sk; when=now;}          // delay quá ngắn: bỏ bớt đoạn lót đầu clip
+    const src=a.createBufferSource(); src.buffer=thBuf;
+    const lp=a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=near?14000:Math.max(1400,3600-delay*900);   // càng xa càng trầm
+    const g=a.createGain(); g.gain.value=near?.95:Math.max(.38,.8-delay*.16);
+    src.connect(lp); lp.connect(g); g.connect(thunderBus(a)); src.start(when,off,dur);
+    return true;
+  }catch(e){return false;}
+}
+/*STORM-AUDIO-END*/
 const WH=['đừng quay lại...','nó đang nhìn bạn','phía sau bạn','đừng nhìn vào bóng tối','chạy đi...','bạn không một mình','nó biết bạn ở đây'];
 function whisper(txt){const w=$('whisper');w.textContent=txt||WH[Math.floor(Math.random()*WH.length)];
   w.style.left=(8+Math.random()*60)+'%';w.style.top=(15+Math.random()*60)+'%';w.style.opacity=.8;setTimeout(()=>w.style.opacity=0,2400);noise(1.2,.05);}
@@ -1578,7 +1672,7 @@ function hit(x,z){for(const b of obstacles){if(x>b.x1-0.35&&x<b.x2+0.35&&z>b.z1-
 
 function update(dt){
   tt+=dt;
-  stormUpdate(dt); pulseClues();
+  stormUpdate(dt); pulseClues(); rainUpdate();
   if(PLAY_SRC&&!pbgm.paused){pduck+=((gh.phase!=='idle'&&state==='play'?.3:1)-pduck)*Math.min(1,dt*2);pbgm.volume=Math.max(0,Math.min(1,musicVol*.8*pduck));}
   for(let i=0;i<DUST;i++){dustPos[i*3+1]+=Math.sin(tt*.6+i)*0.0009+0.0006;dustPos[i*3]+=Math.cos(tt*.4+i*1.7)*0.0007;
     if(dustPos[i*3+1]>RH)dustPos[i*3+1]=0;}
@@ -1718,11 +1812,17 @@ iframe[title="streamlit.components.v1.html"]{
 
 _html = (GAME_HTML.replace("__DATA__", build_data())
          .replace("__MUSIC__", load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True))
-         .replace("__MUSIC2__", load_mp3(PLAY_MUSIC_FILE)))
+         .replace("__MUSIC2__", load_mp3(PLAY_MUSIC_FILE))
+         .replace("__THUNDER__", load_asset(THUNDER_FILE, "audio/mpeg"))
+         .replace("__RAIN__", load_asset(RAIN_FILE, "audio/wav"))
+         .replace("__TCLIPS__", json.dumps(THUNDER_CLIPS)))
 if not load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True):
     st.warning(f"Không tìm thấy file nhạc '{MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc ở menu.")
 if not load_mp3(PLAY_MUSIC_FILE):
     st.warning(f"Không tìm thấy file nhạc '{PLAY_MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc nền khi chơi.")
+if not load_asset(THUNDER_FILE, "audio/mpeg") or not load_asset(RAIN_FILE, "audio/wav"):
+    st.info(f"Chưa thấy '{THUNDER_FILE}' hoặc '{RAIN_FILE}' cùng thư mục với app.py nên game đang dùng "
+            "tiếng sấm/mưa tổng hợp. Đặt 2 file này vào để có tiếng sấm thật và tiếng mưa.")
 components.html(_html, height=720, scrolling=False)
 st.caption("Shift Lock kiểu Roblox cần trình duyệt cho khóa chuột. Nếu không khóa được trong khung này, "
            "bấm nút TAB MỚI trong game hoặc tải bản HTML bên dưới và mở bằng trình duyệt.")
