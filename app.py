@@ -204,6 +204,9 @@ GAME_HTML = r"""
   #whisper{position:absolute;font-size:30px;font-style:italic;color:#8a0c0c;opacity:0;transition:opacity 1s;
            z-index:4;pointer-events:none;text-shadow:0 0 10px #000;letter-spacing:3px}
   #flash{position:absolute;inset:0;background:#a00;opacity:0;pointer-events:none;transition:opacity .45s;z-index:11}
+  #bars{position:absolute;inset:0;pointer-events:none;z-index:9;opacity:0;transition:opacity .6s;
+        background:linear-gradient(#000 0 12%,transparent 12% 88%,#000 88%)}
+  #bars.on{opacity:1}
   #fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;z-index:12}
   #scare{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none;z-index:10;image-rendering:pixelated}
   #hide{position:absolute;inset:0;display:none;pointer-events:none;z-index:4}
@@ -256,6 +259,7 @@ GAME_HTML = r"""
 <div id="hide"></div>
 <canvas id="scare" width="640" height="360"></canvas>
 <div id="flash"></div>
+<div id="bars"></div>
 <div id="fade"></div>
 
 <div id="modal"><div id="box">
@@ -543,7 +547,7 @@ const gArms=[], gHair=[], gMats=[]; let gHeadG, gMouth, gLight;
   ghostRoot.traverse(o=>{if(o.material&&!seen.has(o.material)){seen.add(o.material);o.material.transparent=true;o.material.opacity=0;gMats.push(o.material);}});
   ghostRoot.scale.set(1.05,1.05,1.05);
 })();
-function parkGhost(){gh.phase='idle';gh.alpha=0;gh.peek=0;ghostRoot.position.set(0,-80,0);ghostRoot.rotation.x=0;gLight.intensity=0;}
+function parkGhost(){$('bars').className='';if(camera.fov!==72){camera.fov=72;camera.updateProjectionMatrix();}gh.phase='idle';gh.alpha=0;gh.peek=0;ghostRoot.position.set(0,-80,0);ghostRoot.rotation.x=0;gLight.intensity=0;}
 
 // ---------- Dựng phòng ----------
 const M=(c,e)=>new THREE.MeshStandardMaterial({color:c,roughness:.9,emissive:e||0x000000,side:THREE.DoubleSide});
@@ -1087,10 +1091,10 @@ function ghostSpawn(){
   let sx=Math.max(-RW/2+1.5,Math.min(RW/2-1.5,camera.position.x+fx*8));
   let sz=Math.max(-RD/2+1.5,Math.min(RD/2-1.5,camera.position.z+fz*8));
   if(Math.hypot(sx-camera.position.x,sz-camera.position.z)<4.5){sx=best[0];sz=best[1];}
-  gh.x=sx; gh.z=sz; gh.phase='reveal'; gh.t0=gh.t=3.2; gh.step=0; gh.alpha=0;
+  gh.x=sx; gh.z=sz; gh.phase='reveal'; gh.t0=gh.t=4.6; gh.step=0; gh.alpha=0; gh.shr=false;
   gh.face=Math.atan2(camera.position.x-gh.x,camera.position.z-gh.z);
-  noise(1.4,.3); tone(70,1.6,'sawtooth',.2,160); whisper('tôi thấy bạn...');
-  banner('👁️ NÓ ĐÃ XUẤT HIỆN…',2600);
+  noise(1.4,.3); tone(70,1.6,'sawtooth',.2,160);
+  $('bars').className='on'; $('banner').style.opacity=0;      // đoạn phim ngắn: hiện hai thanh đen điện ảnh
 }
 function moveGhost(tx,tz,sp,dt){
   const dx=tx-gh.x,dz=tz-gh.z,d=Math.hypot(dx,dz)||1,s=Math.min(d,sp*dt);
@@ -1113,12 +1117,21 @@ function updGhost(dt){
   }
   if(P==='warn'){ gh.t-=dt; if(gh.t<=0) ghostSpawn(); return; }
   if(P==='reveal'){
-    gh.t-=dt; gh.alpha=Math.min(1,gh.alpha+dt*1.1);
-    gh.face=Math.atan2(camera.position.x-gh.x,camera.position.z-gh.z);
-    shake=Math.max(shake,.02);
-    if(Math.random()<dt*1.5) noise(.25,.1);
-    if(gh.t<=0){gh.phase='hunt'; gh.t=0; gh.step=0; noise(1.2,.35); tone(60,1.4,'sawtooth',.22,200);
-      whisper('chạy đi...'); banner('😱 NÓ ĐANG ĐUỔI THEO BẠN!\nTRỐN NGAY (tủ / gầm giường — E)',3200);}
+    // ĐOẠN PHIM: 0-1.2s ma chập chờn hiện hình · 1.2-3.3s từ từ tiến lại gần · 3.3s+ camera zoom, ma gào, chớp trắng · hết -> đuổi
+    gh.t-=dt; const e=gh.t0-gh.t, px2=camera.position.x, pz2=camera.position.z;
+    gh.alpha=e<1.2?Math.min(1,e/1.2)*(Math.random()<.35?.3:1):1;
+    gh.face=Math.atan2(px2-gh.x,pz2-gh.z);
+    if(e>1.2&&Math.hypot(gh.x-px2,gh.z-pz2)>4.6) moveGhost(px2,pz2,1.1,dt);
+    shake=Math.max(shake,e>3.3?.12:.02);
+    if(Math.random()<dt*2) noise(.25,.1);
+    const fv=e>3.3?72-16*Math.min(1,(e-3.3)/.9):72;
+    if(Math.abs(camera.fov-fv)>.05){camera.fov=fv;camera.updateProjectionMatrix();}
+    if(e>3.3&&!gh.shr){gh.shr=true; tone(900,.9,'sawtooth',.22,260); tone(120,1,'square',.2,50); noise(.9,.45);
+      const f=$('flash'); f.style.transition='none'; f.style.background='#fff'; f.style.opacity=.7;
+      setTimeout(()=>{f.style.transition='opacity .45s'; f.style.opacity=0; f.style.background='#a00';},60);}
+    if(gh.t<=0){gh.phase='hunt'; gh.t=0; gh.step=0; camera.fov=72; camera.updateProjectionMatrix(); $('bars').className='';
+      noise(1.2,.35); tone(60,1.4,'sawtooth',.22,200); whisper('chạy đi...');
+      banner('😱 NÓ ĐANG ĐUỔI THEO BẠN!\nTRỐN NGAY (tủ / gầm giường — E)',3200);}
     return;
   }
   if(P==='hunt'||P==='search') gh.alpha=Math.min(1,gh.alpha+dt*1.4);
@@ -1165,9 +1178,10 @@ function animGhost(dt){
   const tgt=hunting?-1.35:(gh.phase==='reveal'?-.8:-.2);
   gArms.forEach((a,i)=>{a.sh.rotation.x+=((tgt+Math.sin(t*3+i)*.1)-a.sh.rotation.x)*Math.min(1,dt*6);a.el.rotation.x=-.25+Math.sin(t*5+i*2)*.08;});
   gHeadG.rotation.set(Math.sin(t*2.1)*.12,Math.sin(t*1.3)*.2,Math.sin(t*7)*.07+(Math.random()<dt*3?(Math.random()-.5)*.8:0));
-  if(gh.phase==='scare'){gHeadG.rotation.z+=(Math.random()-.5)*.5;gHeadG.rotation.y+=(Math.random()-.5)*.4;}
+  const lunge=gh.phase==='reveal'&&gh.t0-gh.t>3.3;
+  if(gh.phase==='scare'||lunge){gHeadG.rotation.z+=(Math.random()-.5)*.5;gHeadG.rotation.y+=(Math.random()-.5)*.4;}
   gHair.forEach((h,i)=>{h.rotation.x=Math.sin(t*2+i)*.12;});
-  gMouth.scale.y=(gh.phase==='scare')?1.1+Math.abs(Math.sin(t*40))*.5:.35+Math.sin(t*3)*.1+(gh.phase==='search'?gh.peek*.5:0);
+  gMouth.scale.y=(gh.phase==='scare'||lunge)?1.1+Math.abs(Math.sin(t*40))*.5:.35+Math.sin(t*3)*.1+(gh.phase==='search'?gh.peek*.5:0);
 }
 const sc=$('scare'), scx=sc.getContext('2d');
 function drawScare(t){
@@ -1220,7 +1234,7 @@ addEventListener('mousemove',e=>{
   const r=stage.getBoundingClientRect();
   mouseX=(e.clientX-r.left)/r.width*2-1; mouseY=(e.clientY-r.top)/r.height*2-1;
   mouseIn=Math.abs(mouseX)<=1&&Math.abs(mouseY)<=1;
-  if(state!=='play'||modalOpen) return;
+  if(state!=='play'||modalOpen||gh.phase==='reveal') return;   // đoạn phim: không xoay được camera
   // Vuốt sang phải -> quay phải, sang trái -> quay trái (cả khi khóa chuột thật lẫn khi bị trình duyệt chặn)
   if(isLocked()||dragging||shiftLock){
     yaw-=e.movementX*0.0025; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*0.0025));
@@ -1256,7 +1270,7 @@ function update(dt){
     yaw-=f(mouseX)*2.6*dt; pitch=Math.max(-1.3,Math.min(1.3,pitch-f(mouseY)*1.6*dt));
   }
   let moving=false;
-  if(!modalOpen&&!hidden&&!transitioning){
+  if(!modalOpen&&!hidden&&!transitioning&&gh.phase!=='reveal'){
     let f=0,s=0;
     if(keys.KeyW||keys.ArrowUp)f++; if(keys.KeyS||keys.ArrowDown)f--; if(keys.KeyD)s++; if(keys.KeyA)s--;
     if(f||s){
@@ -1275,6 +1289,10 @@ function update(dt){
     if(doorOpen&&camera.position.z<-RD/2-0.3&&!transitioning) nextRoom();
   }
   if(hidden&&curSpot){ yaw=Math.max(curSpot.yaw-.75,Math.min(curSpot.yaw+.75,yaw)); pitch=Math.max(-.35,Math.min(.4,pitch)); }
+  if(gh.phase==='reveal'&&!hidden){      // đoạn phim: camera tự quay về phía ma, người chơi không điều khiển được
+    let da=Math.atan2(-(gh.x-camera.position.x),-(gh.z-camera.position.z))-yaw; da=Math.atan2(Math.sin(da),Math.cos(da));
+    yaw+=da*(1-Math.exp(-dt*5)); pitch+=(0.05-pitch)*(1-Math.exp(-dt*4));
+  }
   if(!hidden) camera.position.y=1.6+(moving?Math.sin(bob)*0.04:0);
   if(doorOpen){ if(doorPivot.rotation.y<1.9) doorPivot.rotation.y=Math.min(1.9,doorPivot.rotation.y+dt*1.5);
     doorLight.intensity=Math.min(1.8,doorLight.intensity+dt*1.5); }
@@ -1301,6 +1319,7 @@ function update(dt){
     }
     if(cur) txt=cur.kind==='hide'?(cur.type==='bed'?'[E] Chui xuống gầm giường':'[E] Trốn vào tủ'):cur.kind==='door'?(solved.every(Boolean)?'[E] Nhập mật mã':'[E] Cửa (bị khóa)'):'[E] Xem manh mối';
   }
+  if(gh.phase==='reveal'&&!hidden) txt='';
   const p=$('prompt'); p.style.display=txt?'block':'none'; p.textContent=txt;
 
   // sự kiện ngẫu nhiên + nhịp tim
