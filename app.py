@@ -219,13 +219,25 @@ GAME_HTML = r"""
   @keyframes pl{0%,100%{opacity:.25}50%{opacity:1}}
   #modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
          background:rgba(0,0,0,.65);z-index:15}
-  #box{background:#150d08;border:2px solid #7a2a2a;border-radius:8px;padding:22px;width:min(640px,86%);
-       text-align:center;box-shadow:0 0 40px #300}
-  #mt{color:#c9a050;font-size:22px;margin-bottom:10px}
-  #mq{font-size:18px;line-height:1.5;margin-bottom:12px}
-  #mi{width:80%;padding:9px;font-size:18px;border-radius:4px;border:1px solid #666;background:#241810;color:#fff;
-      text-align:center;outline:none}
-  #fb{min-height:24px;margin:10px 0;color:#ffd86b}
+  /* Bảng câu hỏi = một tờ giấy cũ */
+  #box{position:relative;color:#2a1c10;border:0;border-radius:2px;padding:26px 30px;width:min(620px,84%);
+       text-align:center;transform:rotate(-.5deg);
+       background:
+         radial-gradient(circle at 82% 14%,rgba(120,70,20,.22) 0 6%,transparent 14%),
+         radial-gradient(circle at 12% 86%,rgba(110,60,15,.25) 0 7%,transparent 16%),
+         radial-gradient(circle at 70% 90%,rgba(90,40,10,.14) 0 5%,transparent 12%),
+         radial-gradient(ellipse at 30% 15%,#f6ebd0 0%,#e8d6aa 65%,#cdb582 100%);
+       box-shadow:0 14px 50px #000,inset 0 0 46px rgba(120,80,20,.45),inset 0 0 0 1px rgba(90,60,20,.25)}
+  #mt{color:#7a1a1a;font-size:22px;margin-bottom:10px;font-weight:bold;letter-spacing:1px}
+  #mq{font-size:19px;line-height:1.5;margin-bottom:14px;color:#2a1c10}
+  #mi{width:80%;padding:9px;font-size:20px;border:0;border-bottom:2px solid #5a3a1a;border-radius:0;
+      background:rgba(255,255,255,.28);color:#2a1c10;text-align:center;outline:none;font-family:inherit}
+  #fb{min-height:24px;margin:10px 0;color:#8a1010;font-style:italic}
+  #box button{background:rgba(70,40,15,.07);color:#3a1a0a;border:1.5px solid #5a3a1a;box-shadow:none}
+  #box button:hover{background:#6a1a1a;color:#f6ebd0;box-shadow:none}
+  #box .opt b{background:#6a1a1a;color:#f6ebd0}
+  #box .opt.bad{opacity:.45;text-decoration:line-through;cursor:not-allowed;background:rgba(0,0,0,.08);border-color:#8a7a5a;color:#6a5a40}
+  #box .opt.bad:hover{background:rgba(0,0,0,.08);color:#6a5a40}
 </style>
 </head>
 <body>
@@ -331,7 +343,8 @@ function loadNum(k,d,lo,hi){try{const v=parseInt(localStorage.getItem(k));return
 function saveNum(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 let Q=loadNum('doors_q',8,1,10), HQ=Q>=6;       // mức đồ họa 1-10 (<=5: Thấp, >=6: Cao)
 let STW=1280, STH=720, mouseX=0, mouseY=0, mouseIn=false, optOrder=[], wrongSet={}, lockFailShown=false, lockBlocked=false, lockEver=false;
-const pr=()=>Math.max(.5,Math.min(window.devicePixelRatio||1,.55+Q*.15));
+// Cao: độ phân giải gần đầy đủ. Thấp: render độ phân giải rất nhỏ rồi phóng to kiểu pixel (low-poly retro)
+const pr=()=>HQ?Math.max(.8,Math.min(window.devicePixelRatio||1,.55+Q*.15)):(0.28+Q*0.05);
 let hp=MAX_HP, hints=HINTS0, door=0, solved=[false,false,false], hintShown={};
 let state='menu', modalOpen=false, modalMode='q', modalIdx=0, hidden=false, doorOpen=false, transitioning=false;
 let yaw=0, pitch=0, dragging=false, shake=0, bob=0, bannerT=null, cur=null, curSpot=null, spots=[];
@@ -390,7 +403,9 @@ function resetDust(){for(let i=0;i<DUST;i++){dustPos[i*3]=(Math.random()-.5)*RW;
 const CAN={};
 function T(key,w,h,draw,rx,ry){
   if(!CAN[key]){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);CAN[key]=c;}
-  const t=new THREE.CanvasTexture(CAN[key]); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(rx||1,ry||1); t.anisotropy=4; return t;
+  const t=new THREE.CanvasTexture(CAN[key]); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(rx||1,ry||1); t.anisotropy=4;
+  if(!HQ){t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestMipmapNearestFilter;t.anisotropy=1;}   // texture vuông pixel
+  return t;
 }
 const rnd=(a,b)=>a+Math.random()*(b-a);
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -844,7 +859,7 @@ function lockPtr(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch
 function unlockPtr(){expectUnlock=true;try{document.exitPointerLock();}catch(e){}setTimeout(()=>{expectUnlock=false;},250);}
 function setCursor(){
   const want=shiftLock&&state==='play'&&!modalOpen;
-  canvas.style.cursor=want?(isLocked()?'none':'crosshair'):'default';
+  canvas.style.cursor=want?'none':'default';       // Shift Lock: luôn ẩn con trỏ
   $('cross').className=(shiftLock&&state==='play')?'lk':'';
 }
 function syncLock(){
@@ -958,12 +973,14 @@ function updateSettingsUI(){
   $('ql').textContent='Mức đồ họa: '+Q+' / 10 — '+(Q>=6?'CAO':'THẤP');
   $('qd').textContent=Q>=6
     ?'Cao: bóng đổ động, độ phân giải đầy đủ, nhiễu hạt phim và bụi bay. Đẹp hơn nhưng cần máy khỏe.'
-    :'Thấp: tắt bóng đổ, giảm độ phân giải, tắt nhiễu hạt và bụi. Mượt hơn trên máy yếu.';
+    :'Thấp: kiểu pixel low-poly retro — hình ảnh vuông pixel, texture thô, tắt bóng đổ, nhiễu hạt và bụi. Rất mượt trên máy yếu.';
   $('gLow').style.boxShadow=Q<=5?'0 0 10px #a00':'none'; $('gHigh').style.boxShadow=Q>=6?'0 0 10px #a00':'none';
 }
 function applyQuality(noBuild){
   HQ=Q>=6;
   renderer.setPixelRatio(pr()); renderer.setSize(STW,STH);
+  canvas.style.imageRendering=HQ?'auto':'pixelated';
+  renderer.toneMappingExposure=HQ?1.3:1.55;
   [[spot,Q>=9?1024:512],[lamp,Q>=9?512:256]].forEach(a=>{
     if(a[0].shadow.map){a[0].shadow.map.dispose();a[0].shadow.map=null;} a[0].shadow.mapSize.set(a[1],a[1]);});
   $('grain').style.display=HQ?'block':'none'; dust.visible=HQ;
@@ -1169,7 +1186,8 @@ addEventListener('mousemove',e=>{
   mouseX=(e.clientX-r.left)/r.width*2-1; mouseY=(e.clientY-r.top)/r.height*2-1;
   mouseIn=Math.abs(mouseX)<=1&&Math.abs(mouseY)<=1;
   if(state!=='play'||modalOpen) return;
-  if(document.pointerLockElement===canvas||dragging){
+  // Vuốt sang phải -> quay phải, sang trái -> quay trái (cả khi khóa chuột thật lẫn khi bị trình duyệt chặn)
+  if(isLocked()||dragging||shiftLock){
     yaw-=e.movementX*0.0025; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*0.0025));
   }
 });
@@ -1197,9 +1215,10 @@ function update(dt){
   if(state!=='play') return;
   if(!modalOpen){ if(keys.ArrowLeft) yaw+=1.8*dt; if(keys.ArrowRight) yaw-=1.8*dt; }
   // Shift Lock dự phòng (không khóa được chuột): xoay camera theo vị trí chuột so với tâm khung
-  if(!modalOpen&&shiftLock&&lockBlocked&&!isLocked()&&mouseIn&&!dragging){
-    const dz=.18, f=v=>Math.abs(v)>dz?(v-Math.sign(v)*dz)/(1-dz):0;
-    yaw-=f(mouseX)*2.4*dt; pitch=Math.max(-1.3,Math.min(1.3,pitch-f(mouseY)*1.5*dt));
+  // (khi không khóa được chuột, con trỏ ẩn nhưng vẫn chạm mép màn hình -> chạm mép thì tiếp tục xoay về phía đó)
+  if(!modalOpen&&shiftLock&&!isLocked()&&mouseIn&&!dragging){
+    const eb=.94, f=v=>Math.abs(v)>eb?Math.sign(v)*(Math.abs(v)-eb)/(1-eb):0;
+    yaw-=f(mouseX)*2.6*dt; pitch=Math.max(-1.3,Math.min(1.3,pitch-f(mouseY)*1.6*dt));
   }
   let moving=false;
   if(!modalOpen&&!hidden&&!transitioning){
