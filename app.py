@@ -1082,8 +1082,15 @@ function startGhost(){
 function ghostSpawn(){
   const c=[[0,-RD/2+2.5],[0,RD/2-2.5],[-RW/2+2.5,0],[RW/2-2.5,0]];
   let best=c[0],bd=-1; c.forEach(p=>{const d=Math.hypot(p[0]-camera.position.x,p[1]-camera.position.z);if(d>bd){bd=d;best=p;}});
-  gh.x=best[0]; gh.z=best[1]; gh.phase='hunt'; gh.t=0; gh.step=0; gh.alpha=0;
+  // Cảnh xuất hiện: ma hiện ra TRƯỚC MẶT người chơi (cách ~8m, trong tầm nhìn), đứng yên nhìn chằm chằm rồi mới đuổi
+  const fx=-Math.sin(yaw), fz=-Math.cos(yaw);
+  let sx=Math.max(-RW/2+1.5,Math.min(RW/2-1.5,camera.position.x+fx*8));
+  let sz=Math.max(-RD/2+1.5,Math.min(RD/2-1.5,camera.position.z+fz*8));
+  if(Math.hypot(sx-camera.position.x,sz-camera.position.z)<4.5){sx=best[0];sz=best[1];}
+  gh.x=sx; gh.z=sz; gh.phase='reveal'; gh.t0=gh.t=3.2; gh.step=0; gh.alpha=0;
+  gh.face=Math.atan2(camera.position.x-gh.x,camera.position.z-gh.z);
   noise(1.4,.3); tone(70,1.6,'sawtooth',.2,160); whisper('tôi thấy bạn...');
+  banner('👁️ NÓ ĐÃ XUẤT HIỆN…',2600);
 }
 function moveGhost(tx,tz,sp,dt){
   const dx=tx-gh.x,dz=tz-gh.z,d=Math.hypot(dx,dz)||1,s=Math.min(d,sp*dt);
@@ -1105,6 +1112,15 @@ function updGhost(dt){
     return;
   }
   if(P==='warn'){ gh.t-=dt; if(gh.t<=0) ghostSpawn(); return; }
+  if(P==='reveal'){
+    gh.t-=dt; gh.alpha=Math.min(1,gh.alpha+dt*1.1);
+    gh.face=Math.atan2(camera.position.x-gh.x,camera.position.z-gh.z);
+    shake=Math.max(shake,.02);
+    if(Math.random()<dt*1.5) noise(.25,.1);
+    if(gh.t<=0){gh.phase='hunt'; gh.t=0; gh.step=0; noise(1.2,.35); tone(60,1.4,'sawtooth',.22,200);
+      whisper('chạy đi...'); banner('😱 NÓ ĐANG ĐUỔI THEO BẠN!\nTRỐN NGAY (tủ / gầm giường — E)',3200);}
+    return;
+  }
   if(P==='hunt'||P==='search') gh.alpha=Math.min(1,gh.alpha+dt*1.4);
   const px=camera.position.x, pz=camera.position.z;
   if(P==='hunt'){
@@ -1140,13 +1156,13 @@ function animGhost(dt){
   if(gh.phase!=='scare'){
     const sp=curSpot;
     const sink=(gh.phase==='search'||gh.phase==='leave')&&sp?sp.sink*gh.peek:0;
-    const bend=(gh.phase==='search'||gh.phase==='leave')&&sp?sp.bend*gh.peek:0;
+    const bend=(gh.phase==='search'||gh.phase==='leave')&&sp?sp.bend*gh.peek:(gh.phase==='reveal'?.65*Math.max(0,gh.t/gh.t0):0);
     ghostRoot.position.set(gh.x,-sink+Math.sin(t*2)*.04,gh.z);
     let da=gh.face-ghostRoot.rotation.y; da=Math.atan2(Math.sin(da),Math.cos(da));
     ghostRoot.rotation.y+=da*Math.min(1,dt*8);
     ghostRoot.rotation.x=bend;
   }
-  const tgt=hunting?-1.35:-.2;
+  const tgt=hunting?-1.35:(gh.phase==='reveal'?-.8:-.2);
   gArms.forEach((a,i)=>{a.sh.rotation.x+=((tgt+Math.sin(t*3+i)*.1)-a.sh.rotation.x)*Math.min(1,dt*6);a.el.rotation.x=-.25+Math.sin(t*5+i*2)*.08;});
   gHeadG.rotation.set(Math.sin(t*2.1)*.12,Math.sin(t*1.3)*.2,Math.sin(t*7)*.07+(Math.random()<dt*3?(Math.random()-.5)*.8:0));
   if(gh.phase==='scare'){gHeadG.rotation.z+=(Math.random()-.5)*.5;gHeadG.rotation.y+=(Math.random()-.5)*.4;}
