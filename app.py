@@ -207,6 +207,9 @@ GAME_HTML = r"""
   #bars{position:absolute;inset:0;pointer-events:none;z-index:9;opacity:0;transition:opacity .6s;
         background:linear-gradient(#000 0 12%,transparent 12% 88%,#000 88%)}
   #bars.on{opacity:1}
+  #warn{z-index:25}
+  .chk{display:flex;align-items:center;gap:10px;justify-content:center;margin:14px 0;color:#e0d6c0;font-size:16px;cursor:pointer}
+  .chk input{width:20px;height:20px;accent-color:#b3141a;cursor:pointer}
   #fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;z-index:12}
   #scare{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none;z-index:10;image-rendering:pixelated}
   #hide{position:absolute;inset:0;display:none;pointer-events:none;z-index:4}
@@ -288,6 +291,8 @@ GAME_HTML = r"""
     <div class="row"><button id="qm" class="sq">−</button><input id="qr" type="range" min="1" max="10" step="1" value="8"><button id="qp" class="sq">+</button></div>
     <div id="ql"></div>
     <p id="qd"></p>
+    <h3>⚡ Hiệu ứng</h3>
+    <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="rfchk2"> Giảm hiệu ứng chớp sáng (an toàn hơn cho người nhạy cảm ánh sáng)</label>
     <h3>🔊 Âm lượng nhạc menu</h3>
     <div class="row"><input id="vr" type="range" min="0" max="100" step="5" value="60"><span id="vv">60%</span></div>
   </div>
@@ -328,6 +333,22 @@ GAME_HTML = r"""
   <button id="hback">← Quay lại</button>
 </div>
 
+<div id="warn" class="ov" style="display:flex">
+  <h1 style="color:#d9b45a;font-size:46px;letter-spacing:8px;text-shadow:0 0 14px #6a4a10">⚠ CẢNH BÁO</h1>
+  <div class="hw" style="width:620px">
+    <p style="margin:0 0 6px;max-width:none">Trò chơi này là game <b>kinh dị</b> và có chứa:</p>
+    <ul>
+      <li>🔊 <b>Âm thanh lớn, đột ngột</b> (tiếng hét, tiếng động mạnh). Hãy hạ âm lượng trước khi chơi, nhất là khi đeo tai nghe.</li>
+      <li>💡 <b>Ánh sáng chớp nhanh, màn hình nhấp nháy</b>. Có thể gây khó chịu hoặc kích phát cơn co giật ở người nhạy cảm với ánh sáng / mắc chứng động kinh.</li>
+      <li>👻 <b>Cảnh hù dọa bất ngờ</b> (jumpscare) và hình ảnh rùng rợn.</li>
+      <li>❤️ <b>Không phù hợp</b> với trẻ nhỏ, người có bệnh tim hoặc dễ hoảng sợ.</li>
+    </ul>
+    <p style="margin:10px 0 0;max-width:none">Nếu cảm thấy chóng mặt, buồn nôn, đau đầu hoặc khó chịu, hãy <b>dừng chơi ngay</b> và nghỉ ngơi.</p>
+  </div>
+  <label class="chk"><input type="checkbox" id="rfchk"> Giảm hiệu ứng chớp sáng (khuyên dùng nếu nhạy cảm với ánh sáng)</label>
+  <button id="warnok" style="font-size:19px;padding:12px 30px">✔ Tôi hiểu, tiếp tục</button>
+</div>
+
 <div id="over" class="ov"><h1>BẠN ĐÃ CHẾT</h1><p id="overmsg"></p>
   <div><button id="retry">🔄 Chơi lại từ đầu</button><button id="tomenu">🏠 Menu</button></div></div>
 <div id="win" class="ov"><h1 style="color:#d9b45a">THOÁT ĐƯỢC!</h1><p>Bạn đã vượt qua cả 5 cánh cửa... lần này.</p>
@@ -350,6 +371,7 @@ let Q=loadNum('doors_q',8,1,10), HQ=Q>=6;       // mức đồ họa 1-10 (<=5: 
 let STW=1280, STH=720, mouseX=0, mouseY=0, mouseIn=false, optOrder=[], wrongSet={}, lockFailShown=false, lockBlocked=false, lockEver=false;
 // Cao: độ phân giải gần đầy đủ. Thấp: render độ phân giải rất nhỏ rồi phóng to kiểu pixel (low-poly retro)
 const pr=()=>HQ?Math.max(.8,Math.min(window.devicePixelRatio||1,.55+Q*.15)):(0.28+Q*0.05);
+let RF=loadNum('doors_rf',0,0,1)===1;   // giảm hiệu ứng chớp sáng
 let hp=MAX_HP, hints=HINTS0, door=0, solved=[false,false,false], hintShown={};
 let state='menu', modalOpen=false, modalMode='q', modalIdx=0, hidden=false, doorOpen=false, transitioning=false;
 let yaw=0, pitch=0, dragging=false, shake=0, bob=0, bannerT=null, cur=null, curSpot=null, spots=[];
@@ -984,6 +1006,9 @@ function resetGame(){musicStop();hp=MAX_HP;hints=HINTS0;door=0;hintShown={};stat
   showOnly(''); startRoom(); syncLock();}
 function toMenu(){state='menu';closeModal(true);syncLock();parkGhost();showOnly('menu');buildRoom();camera.position.set(0,1.6,RD/2-2);yaw=0;pitch=0;musicStart();}
 $('start').onclick=resetGame; $('retry').onclick=resetGame; $('again').onclick=resetGame;
+function setRF(v){RF=!!v; saveNum('doors_rf',RF?1:0); $('rfchk').checked=RF; $('rfchk2').checked=RF;}
+$('rfchk').onchange=()=>setRF($('rfchk').checked); $('rfchk2').onchange=()=>setRF($('rfchk2').checked); setRF(RF);
+$('warnok').onclick=()=>{$('warn').style.display='none';};
 $('tomenu').onclick=toMenu; $('tomenu2').onclick=toMenu;
 $('how').onclick=()=>showOnly('howto'); $('hback').onclick=()=>showOnly('menu');
 // ----- Cài đặt đồ họa (kiểu Roblox: thanh trượt 1-10; 1-5 = Thấp, 6-10 = Cao) -----
@@ -1123,8 +1148,8 @@ function updGhost(dt){
     const fv=e>3.3?72-16*Math.min(1,(e-3.3)/.9):72;
     if(Math.abs(camera.fov-fv)>.05){camera.fov=fv;camera.updateProjectionMatrix();}
     if(e>3.3&&!gh.shr){gh.shr=true; tone(900,.9,'sawtooth',.22,260); tone(120,1,'square',.2,50); noise(.9,.45);
-      const f=$('flash'); f.style.transition='none'; f.style.background='#fff'; f.style.opacity=.7;
-      setTimeout(()=>{f.style.transition='opacity .45s'; f.style.opacity=0; f.style.background='#a00';},60);}
+      if(!RF){const f=$('flash'); f.style.transition='none'; f.style.background='#fff'; f.style.opacity=.7;
+        setTimeout(()=>{f.style.transition='opacity .45s'; f.style.opacity=0; f.style.background='#a00';},60);}}
     if(gh.t<=0){gh.phase='hunt'; gh.t=0; gh.step=0; camera.fov=72; camera.updateProjectionMatrix(); $('bars').className='';
       noise(1.2,.35); tone(60,1.4,'sawtooth',.22,200); whisper('chạy đi...');
       banner('😱 NÓ ĐANG ĐUỔI THEO BẠN!\nTRỐN NGAY (tủ / gầm giường — E)',3200);}
@@ -1182,7 +1207,7 @@ function animGhost(dt){
 const sc=$('scare'), scx=sc.getContext('2d');
 function drawScare(t){
   const w=sc.width,h=sc.height; scx.clearRect(0,0,w,h);
-  if(t<.12||t>2.2||Math.random()<.18||!CAN.face) return;
+  if(t<.12||t>2.2||(!RF&&Math.random()<.18)||!CAN.face) return;
   const k=1+Math.min(t,.6)*.9+Math.sin(t*50)*.04, fh=h*1.35*k, fw=fh*512/640;
   scx.fillStyle='rgba(0,0,0,.55)'; scx.fillRect(0,0,w,h);
   scx.save(); scx.translate(w/2+(Math.random()-.5)*w*.04,h*.52+(Math.random()-.5)*h*.04); scx.rotate((Math.random()-.5)*.08);
@@ -1199,7 +1224,9 @@ function updScare(dt){
   ghostRoot.rotation.y=Math.atan2(-gh.ux,-gh.uz); ghostRoot.rotation.x=.8*Math.min(1,scareT/.2);
   camera.fov=72+Math.min(scareT,1.2)*18; camera.updateProjectionMatrix();
   shake=Math.max(shake,.3);
-  scareFlashT-=dt; if(scareFlashT<=0){scareFlashT=.06;const f=$('flash');f.style.transition='none';f.style.background=Math.random()<.4?'#fff':'#8890a0';f.style.opacity=Math.random()<.6?(.3+Math.random()*.6):0;}
+  scareFlashT-=dt; if(scareFlashT<=0){scareFlashT=.06;const f=$('flash');
+    if(RF){f.style.transition='opacity .3s';f.style.background='#667';f.style.opacity=.22;}
+    else{f.style.transition='none';f.style.background=Math.random()<.4?'#fff':'#8890a0';f.style.opacity=Math.random()<.6?(.3+Math.random()*.6):0;}}
   drawScare(scareT);
   if(scareT>2.6){ const f=$('flash'); f.style.transition='opacity .45s'; gameOver('Con ma đã bắt được bạn...\nBạn phải bắt đầu lại từ cửa số 1.'); }
 }
@@ -1340,6 +1367,7 @@ function update(dt){
   lampF=1; if(flickT>0){flickT-=dt;lampF=Math.random()<.5?.08:1;}
   if(gh.phase==='warn') lampF=(Math.sin(tt*40)>.1&&Math.random()<.55)?1:.04;
   else if(ghostOn) lampF=Math.random()<.1?.6:.05+Math.random()*.08;
+  if(RF) lampF=gh.phase==='warn'?.35+.25*Math.sin(tt*2.5):(ghostOn?.12:(flickT>0?.5:1));   // chế độ giảm chớp: đèn mờ/sáng chậm, không nhấp nháy
   ambL.intensity=.85*(1-dark*.7);
   lamp.intensity=1.1*lampF; lampB.intensity=.9*lampF;
   if(flameMat){const v=Math.max(.15,lampF);flameMat.color.setRGB(v,.85*v,.63*v);}
