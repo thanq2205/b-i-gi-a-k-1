@@ -1478,6 +1478,10 @@ canvas.addEventListener('mousedown',()=>{
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('mouseup',()=>dragging=false);
 document.documentElement.addEventListener('mouseleave',()=>{mouseIn=false;});
+document.addEventListener('mouseleave',()=>{mouseIn=false;});
+document.addEventListener('mouseout',e=>{if(!e.relatedTarget)mouseIn=false;});   // con trỏ rời khung/iframe -> ngừng xoay
+addEventListener('blur',()=>{mouseIn=false;keys={};});                           // mất focus (bấm ra ngoài iframe) -> ngừng xoay
+document.addEventListener('visibilitychange',()=>{mouseIn=false;keys={};});
 addEventListener('mousemove',e=>{
   const r=stage.getBoundingClientRect();
   mouseX=(e.clientX-r.left)/r.width*2-1; mouseY=(e.clientY-r.top)/r.height*2-1;
