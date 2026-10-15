@@ -1,5 +1,5 @@
 """
-🚪 DOORS 3D – Trò chơi giải đố kinh dị 5 cửa, góc nhìn thứ nhất (lấy cảm hứng từ Doors trong Roblox)
+DOORS 3D – Trò chơi giải đố kinh dị 5 cửa, góc nhìn thứ nhất (lấy cảm hứng từ Doors trong Roblox)
 Chạy:  streamlit run app.py
 Đặt file nhạc "doors-roblox-ost-elevator-jam-made-with-Voicemod.mp3" cùng thư mục với app.py.
 Game 3D chạy bằng Three.js, nhúng vào Streamlit qua components.html.
@@ -11,7 +11,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="DOORS 3D", page_icon="🚪", layout="wide")
+st.set_page_config(page_title="DOORS 3D", layout="wide")
 
 
 # ---------------------------------------------------------------------------
@@ -109,15 +109,18 @@ DOORS = [
 ]
 
 MUSIC_FILE = "doors-roblox-ost-elevator-jam-made-with-Voicemod.mp3"
+PLAY_MUSIC_FILE = "05._In_The_House.mp3"   # nhạc nền khi đang chơi
 
 
 @st.cache_data(show_spinner=False)
-def load_music() -> str:
+def load_mp3(name: str, skip: str = "", fallback: bool = False) -> str:
     """Đọc file mp3 (cùng thư mục với app.py) và nhúng vào game dạng data-URI."""
     base = Path(__file__).resolve().parent
-    p = base / MUSIC_FILE
+    p = base / name
     if not p.exists():
-        found = sorted(base.glob("*.mp3"))
+        if not fallback:
+            return ""
+        found = [f for f in sorted(base.glob("*.mp3")) if f.name != skip]
         if not found:
             return ""
         p = found[0]
@@ -147,19 +150,19 @@ GAME_HTML = r"""
 <head>
 <meta charset="utf-8">
 <style>
-  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:Georgia,serif;color:#eee;user-select:none}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:'Times New Roman','Noto Serif',Georgia,serif;color:#eee;user-select:none}
   /* Khung 16:9: #stage luôn giữ tỉ lệ 16:9 (letterbox), #ui là lớp giao diện thiết kế ở 1280x720 rồi scale theo khung */
   #stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);overflow:hidden;background:#000}
   #c{position:absolute;inset:0}
   #c canvas{display:block}
   #ui{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;overflow:hidden;pointer-events:none}
   .ov,#modal,#sl,#fs,button,input{pointer-events:auto}
-  #fs{position:absolute;top:8px;right:10px;z-index:30;padding:2px 10px;font-size:20px;margin:0;opacity:.75}
+  #fs{position:absolute;top:8px;right:10px;z-index:30;padding:5px 10px;font-size:13px;margin:0;opacity:.75}
   #fs:hover{opacity:1}
-  #nt{position:absolute;top:8px;right:58px;z-index:30;padding:2px 10px;font-size:20px;margin:0;opacity:.75;display:none}
+  #nt{position:absolute;top:8px;right:76px;z-index:30;padding:5px 10px;font-size:13px;margin:0;opacity:.75;display:none}
   #nt:hover{opacity:1}
   #lockbtn{position:absolute;right:16px;bottom:16px;z-index:7;width:56px;height:56px;padding:0;margin:0;border-radius:50%;
-           font-size:26px;background:rgba(0,0,0,.55);border:2px solid #9a2a2a;display:none}
+           font-size:18px;font-weight:bold;background:rgba(0,0,0,.55);border:2px solid #9a2a2a;display:none}
   #lockbtn.on{background:rgba(120,90,10,.75);border-color:#ffd86b;box-shadow:0 0 14px #a80}
   #cross.lk{width:22px;height:22px;margin:-11px;background:transparent;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 6px #000}
   #cross.lk:after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:#fff}
@@ -253,9 +256,9 @@ GAME_HTML = r"""
 <div id="cross"></div>
 <div id="hud"><div id="dn"></div><div id="hp"></div><div id="hn"></div><div id="ks"></div><div id="ot"></div><div id="sl"></div></div>
 <div id="help">WASD / ←→: di chuyển · Kéo chuột: nhìn · Shift: Shift Lock · Giữ Space: chạy · E: tương tác · A/B/C/D: chọn đáp án · Esc: đóng</div>
-<button id="fs" title="Toàn màn hình">⛶</button>
-<button id="nt" title="Mở game ở tab mới (Shift Lock chuẩn như Roblox)">↗</button>
-<button id="lockbtn" title="Shift Lock (phím Shift)">🔓</button>
+<button id="fs" title="Toàn màn hình">FULL</button>
+<button id="nt" title="Mở game ở tab mới (Shift Lock chuẩn như Roblox)">TAB MỚI</button>
+<button id="lockbtn" title="Shift Lock (phím Shift)">SL</button>
 <div id="prompt"></div>
 <div id="banner"></div>
 <div id="whisper"></div>
@@ -270,57 +273,57 @@ GAME_HTML = r"""
   <div id="opts"></div>
   <input id="mi" autocomplete="off" spellcheck="false">
   <div id="fb"></div>
-  <button id="b1">Trả lời</button><button id="b2">💡 Gợi ý</button><button id="b3">Đóng (Esc)</button>
+  <button id="b1">Trả lời</button><button id="b2">Gợi ý</button><button id="b3">Đóng (Esc)</button>
 </div></div>
 
 <div id="menu" class="ov" style="display:flex">
   <h1>DOORS</h1>
   <div class="mb">
-    <button id="start">▶ CHƠI</button>
-    <button id="how">📖 HƯỚNG DẪN</button>
-    <button id="settingsBtn">⚙️ CÀI ĐẶT</button>
+    <button id="start">CHƠI</button>
+    <button id="how">HƯỚNG DẪN</button>
+    <button id="settingsBtn">CÀI ĐẶT</button>
   </div>
-  <p id="musichint">🔊 Bấm vào bất kỳ đâu để bật nhạc</p>
+  <p id="musichint">Bấm vào bất kỳ đâu để bật nhạc</p>
 </div>
 
 <div id="settings" class="ov">
   <h1 style="font-size:40px;letter-spacing:8px">CÀI ĐẶT</h1>
   <div class="hw">
-    <h3>🖥️ Đồ họa</h3>
+    <h3>Đồ họa</h3>
     <div class="row"><button id="gLow">THẤP</button><button id="gHigh">CAO</button></div>
     <div class="row"><button id="qm" class="sq">−</button><input id="qr" type="range" min="1" max="10" step="1" value="8"><button id="qp" class="sq">+</button></div>
     <div id="ql"></div>
     <p id="qd"></p>
-    <h3>⚡ Hiệu ứng</h3>
+    <h3>Hiệu ứng</h3>
     <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="rfchk2"> Giảm hiệu ứng chớp sáng (an toàn hơn cho người nhạy cảm ánh sáng)</label>
-    <h3>🔊 Âm lượng nhạc menu</h3>
+    <h3>Âm lượng nhạc</h3>
     <div class="row"><input id="vr" type="range" min="0" max="100" step="5" value="60"><span id="vv">60%</span></div>
   </div>
-  <button id="sback">← Quay lại</button>
+  <button id="sback">Quay lại</button>
 </div>
 
 <div id="howto" class="ov">
   <h1 style="font-size:40px;letter-spacing:8px">HƯỚNG DẪN</h1>
   <div class="hw">
-    <h3>🎮 Điều khiển</h3>
+    <h3>Điều khiển</h3>
     <ul>
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc phím mũi tên: di chuyển / xoay</li>
       <li><b>Kéo chuột</b>: nhìn xung quanh</li>
-      <li><kbd>Shift</kbd> hoặc nút 🔒 góc phải dưới: bật / tắt <b>Shift Lock</b> giống Roblox — chuột bị khóa ở giữa màn hình, hiện tâm ngắm, xoay camera mà không cần bấm chuột. Lỡ nhả chuột (Esc) thì bấm vào màn hình để khóa lại</li>
+      <li><kbd>Shift</kbd> hoặc nút SL góc phải dưới: bật / tắt <b>Shift Lock</b> giống Roblox — chuột bị khóa ở giữa màn hình, hiện tâm ngắm, xoay camera mà không cần bấm chuột. Lỡ nhả chuột (Esc) thì bấm vào màn hình để khóa lại</li>
       <li>Khi tắt Shift Lock: giữ chuột trái hoặc phải rồi kéo để nhìn</li>
-      <li>Nếu chạy trong Streamlit mà không khóa được chuột (trình duyệt chặn), bấm nút <kbd>↗</kbd> góc phải trên để mở game ở tab mới</li>
+      <li>Nếu chạy trong Streamlit mà không khóa được chuột (trình duyệt chặn), bấm nút <kbd>TAB MỚI</kbd> góc phải trên để mở game ở tab mới</li>
       <li><kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> hoặc bấm chuột: chọn đáp án khi trả lời câu hỏi</li>
       <li>Giữ <kbd>Space</kbd>: chạy</li>
       <li><kbd>E</kbd>: tương tác (xem manh mối, mở cửa, trốn vào tủ / gầm giường)</li>
       <li><kbd>Esc</kbd>: đóng bảng câu hỏi</li>
     </ul>
-    <h3>🔑 Mục tiêu</h3>
+    <h3>Mục tiêu</h3>
     <ul>
       <li>Mỗi phòng có <b>3 manh mối</b> phát sáng nhấp nháy 3 giây một lần. Trả lời <b>câu hỏi trắc nghiệm A/B/C/D</b> để lấy 3 chữ số (chìa khóa).</li>
       <li>Ghép các chữ số theo đúng thứ tự gợi ý rồi nhập mật mã vào <b>cánh cửa</b> để sang phòng tiếp theo.</li>
-      <li>Có 5 cánh cửa. Chọn sai đáp án hoặc nhập sai mật mã sẽ mất 1 ❤️ (có 3 ❤️).</li>
+      <li>Có 5 cánh cửa. Chọn sai đáp án hoặc nhập sai mật mã sẽ mất 1 (có 3 ).</li>
     </ul>
-    <h3>👻 Con ma</h3>
+    <h3>Con ma</h3>
     <ul>
       <li>Thỉnh thoảng <b>đèn sẽ chớp liên tục</b>. Đó là dấu hiệu một con ma sắp xuất hiện.</li>
       <li>Hãy <b>trốn ngay</b> vào <b>tủ quần áo</b> hoặc <b>gầm giường</b> (nhìn vào rồi bấm <kbd>E</kbd>).</li>
@@ -330,29 +333,29 @@ GAME_HTML = r"""
     </ul>
     <p style="text-align:center;color:#8a8a8a;margin-top:14px"><i>Nên đeo tai nghe và tắt đèn phòng.</i></p>
   </div>
-  <button id="hback">← Quay lại</button>
+  <button id="hback">Quay lại</button>
 </div>
 
 <div id="warn" class="ov" style="display:flex">
-  <h1 style="color:#d9b45a;font-size:46px;letter-spacing:8px;text-shadow:0 0 14px #6a4a10">⚠ CẢNH BÁO</h1>
+  <h1 style="color:#d9b45a;font-size:46px;letter-spacing:8px;text-shadow:0 0 14px #6a4a10">CẢNH BÁO</h1>
   <div class="hw" style="width:620px">
     <p style="margin:0 0 6px;max-width:none">Trò chơi này là game <b>kinh dị</b> và có chứa:</p>
     <ul>
-      <li>🔊 <b>Âm thanh lớn, đột ngột</b> (tiếng hét, tiếng động mạnh). Hãy hạ âm lượng trước khi chơi, nhất là khi đeo tai nghe.</li>
-      <li>💡 <b>Ánh sáng chớp nhanh, màn hình nhấp nháy</b>. Có thể gây khó chịu hoặc kích phát cơn co giật ở người nhạy cảm với ánh sáng / mắc chứng động kinh.</li>
-      <li>👻 <b>Cảnh hù dọa bất ngờ</b> (jumpscare) và hình ảnh rùng rợn.</li>
-      <li>❤️ <b>Không phù hợp</b> với trẻ nhỏ, người có bệnh tim hoặc dễ hoảng sợ.</li>
+      <li><b>Âm thanh lớn, đột ngột</b> (tiếng hét, tiếng động mạnh). Hãy hạ âm lượng trước khi chơi, nhất là khi đeo tai nghe.</li>
+      <li><b>Ánh sáng chớp nhanh, màn hình nhấp nháy</b>. Có thể gây khó chịu hoặc kích phát cơn co giật ở người nhạy cảm với ánh sáng / mắc chứng động kinh.</li>
+      <li><b>Cảnh hù dọa bất ngờ</b> (jumpscare) và hình ảnh rùng rợn.</li>
+      <li><b>Không phù hợp</b> với trẻ nhỏ, người có bệnh tim hoặc dễ hoảng sợ.</li>
     </ul>
     <p style="margin:10px 0 0;max-width:none">Nếu cảm thấy chóng mặt, buồn nôn, đau đầu hoặc khó chịu, hãy <b>dừng chơi ngay</b> và nghỉ ngơi.</p>
   </div>
   <label class="chk"><input type="checkbox" id="rfchk"> Giảm hiệu ứng chớp sáng (khuyên dùng nếu nhạy cảm với ánh sáng)</label>
-  <button id="warnok" style="font-size:19px;padding:12px 30px">✔ Tôi hiểu, tiếp tục</button>
+  <button id="warnok" style="font-size:19px;padding:12px 30px">Tôi hiểu, tiếp tục</button>
 </div>
 
 <div id="over" class="ov"><h1>BẠN ĐÃ CHẾT</h1><p id="overmsg"></p>
-  <div><button id="retry">🔄 Chơi lại từ đầu</button><button id="tomenu">🏠 Menu</button></div></div>
+  <div><button id="retry">Chơi lại từ đầu</button><button id="tomenu">Menu</button></div></div>
 <div id="win" class="ov"><h1 style="color:#d9b45a">THOÁT ĐƯỢC!</h1><p>Bạn đã vượt qua cả 5 cánh cửa... lần này.</p>
-  <div><button id="again">🔄 Chơi lại</button><button id="tomenu2">🏠 Menu</button></div></div>
+  <div><button id="again">Chơi lại</button><button id="tomenu2">Menu</button></div></div>
 
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -360,6 +363,7 @@ GAME_HTML = r"""
 (function(){
 const DOORS = __DATA__;
 const MUSIC_SRC = "__MUSIC__";
+const PLAY_SRC = "__MUSIC2__";
 const MAX_HP=3, HINTS0=5, RH=4;
 const SIZES=[[18,26],[20,28],[22,30],[22,32],[24,34]];
 let RW=18, RD=26;
@@ -585,13 +589,17 @@ function drawStorm(dt){
 function thunder(near){
   if(!amb) return;
   try{
-    const a=ac(), n=Math.floor(a.sampleRate*3.4), b=a.createBuffer(1,n,a.sampleRate), x=b.getChannelData(0);
-    for(let i=0;i<n;i++){const t=i/n; x[i]=(Math.random()*2-1)*Math.pow(1-t,1.5)*(.65+.35*Math.sin(t*34));}
-    const s=a.createBufferSource(), lp=a.createBiquadFilter(), g=a.createGain();
-    lp.type='lowpass'; lp.frequency.setValueAtTime(320,a.currentTime); lp.frequency.exponentialRampToValueAtTime(50,a.currentTime+3.2);
-    g.gain.value=near?3.2:2.2; s.buffer=b; s.connect(lp); lp.connect(g); g.connect(a.destination); s.start();
-    if(near) noise(.22,.45);
-    tone(near?44:36,2.6,'sine',near?.6:.4,20);
+    const a=ac(), t0=a.currentTime, n=Math.floor(a.sampleRate*4.2), b=a.createBuffer(1,n,a.sampleRate), x=b.getChannelData(0);
+    for(let i=0;i<n;i++){const t=i/n; x[i]=(Math.random()*2-1)*Math.pow(1-t,1.25)*(.6+.4*Math.sin(t*30)+.25*Math.sin(t*71));}
+    const s=a.createBufferSource(), lp=a.createBiquadFilter(), g=a.createGain(), cp=a.createDynamicsCompressor();
+    lp.type='lowpass'; lp.frequency.setValueAtTime(1100,t0); lp.frequency.exponentialRampToValueAtTime(45,t0+3.8);
+    g.gain.value=near?9:6.5;
+    cp.threshold.value=-12; cp.knee.value=8; cp.ratio.value=14; cp.attack.value=.002; cp.release.value=.25;
+    s.buffer=b; s.connect(lp); lp.connect(g); g.connect(cp); cp.connect(a.destination); s.start(t0);
+    noise(.35,near?1:.7);                       // tiếng nổ chát lúc sét đánh
+    if(near){ noise(.6,.8); tone(70,.7,'sawtooth',.5,30); }
+    tone(near?58:44,3.2,'sine',1,18);           // tiếng ầm trầm
+    tone(near?95:70,1.4,'square',.28,28);
   }catch(e){}
 }
 function stormUpdate(dt){
@@ -600,7 +608,7 @@ function stormUpdate(dt){
     nextBolt=6+Math.random()*10; boltT=1; boltX=20+Math.random()*216;
     boltPts=[[boltX,0]]; let bx=boltX,by=0;
     while(by<130){bx+=(Math.random()-.5)*28; by+=10+Math.random()*14; boltPts.push([bx,by]);}
-    thunderIn=.2+Math.random()*1.9; thunderNear=thunderIn<.9;
+    thunderIn=.15+Math.random()*1.6; thunderNear=thunderIn<1.0;
   }
   if(boltT>0){
     boltT=Math.max(0,boltT-dt); const e=1-boltT;
@@ -796,9 +804,9 @@ function buildRoom(){
     box(pw+.16,ph+.16,.06,M(0x6b5320),0,0,0,gp,false);
     const t=paintTex(v),p=new THREE.Mesh(new THREE.PlaneGeometry(pw,ph),new THREE.MeshStandardMaterial({map:t,emissiveMap:t,emissive:0xffffff,emissiveIntensity:.2,roughness:.8}));
     p.position.z=.04;gp.add(p);};
-  const windowAt=(x,y,z,ry,ww,hh)=>{ww=ww||1.1;hh=hh||1.7;const gp=new THREE.Group();gp.position.set(x,y,z);gp.rotation.y=ry;room.add(gp);
-    const geo=new THREE.PlaneGeometry(ww,hh),uv=geo.attributes.uv,o=Math.random()*.5;
-    for(let i=0;i<uv.count;i++)uv.setX(i,o+uv.getX(i)*.5);
+  const windowAt=(x,y,z,ry,ww,hh)=>{ww=ww||2.0;hh=hh||1.8;const gp=new THREE.Group();gp.position.set(x,y,z);gp.rotation.y=ry;room.add(gp);
+    const geo=new THREE.PlaneGeometry(ww,hh),uv=geo.attributes.uv,o=Math.random(),uvW=Math.min(1,(ww/hh)*(192/256));
+    for(let i=0;i<uv.count;i++)uv.setX(i,o+uv.getX(i)*uvW);
     const gl=new THREE.Mesh(geo,stormMat);gl.position.z=.02;gp.add(gl);
     box(ww+.24,.1,.14,woodDark,0,hh/2+.05,.04,gp,false);box(ww+.36,.1,.24,woodDark,0,-hh/2-.05,.08,gp,false);
     box(.1,hh+.2,.14,woodDark,-ww/2-.05,0,.04,gp,false);box(.1,hh+.2,.14,woodDark,ww/2+.05,0,.04,gp,false);
@@ -869,7 +877,7 @@ function buildRoom(){
     windowAt(wx(1,.06),2.4,4.2,ryOf(1));
     windowAt(-6.5,2.4,-hd+.06,0); windowAt(6.5,2.4,-hd+.06,0);
     windowAt(1.5,2.4,hd-.06,Math.PI);
-    sconceMesh(wx(1,.1),RD*0.12,ryOf(1));
+    sconceMesh(wx(1,.1),RD*0.05,ryOf(1));
     sconceL[1].position.set(wx(-1,.9),2.6,-RD*0.15);
     break;}
 
@@ -944,8 +952,8 @@ function buildRoom(){
     table(-8,-9,1.4,1.4,.9); clue(1,-8,.98,-9,.5,.08,.35,0);
     [[-9.8,-14.6],[-8.8,-14.8],[9.8,-14.4],[8.8,-14.7],[-9.6,13.6],[-8.5,14.4],[9.6,14.2],[-7.5,10.5],[7.8,1.5],[7.2,-2.5]].forEach(p=>barrel(p[0],p[1]));
     crate(-8,12.3,.9,.5); crate(8.5,12,.9,.2); crate(7.6,-9.5,.8,.7); crate(-7.5,3.5,.8,.1);
-    [-11,-4,3,10].forEach(z=>{windowAt(wx(-1,.06),3.3,z,ryOf(-1),.9,.55);windowAt(wx(1,.06),3.3,z,ryOf(1),.9,.55);});
-    windowAt(-6.5,3.2,-hd+.06,0,.9,.55); windowAt(6.5,3.2,-hd+.06,0,.9,.55);
+    [-11,-4,3,10].forEach(z=>{windowAt(wx(-1,.06),3.3,z,ryOf(-1),2,.6);windowAt(wx(1,.06),3.3,z,ryOf(1),2,.6);});
+    windowAt(-6.5,3.2,-hd+.06,0,2,.6); windowAt(6.5,3.2,-hd+.06,0,2,.6);
     sconceMesh(wx(-1,.1),-3,ryOf(-1)); sconceMesh(wx(1,.1),4,ryOf(1));
     painting(1,3.6,2.2,-hd+.05,0,1,1.25);
     break;}
@@ -965,10 +973,10 @@ function buildRoom(){
     wardrobe(wx(1,.55),6,-1,0);
     bed(wx(1,1.4),13,1,0,-1,0x1a3a4a);
     wardrobe(6,hd-.55,0,-1); paintClue(2,-3);
-    [-12,-4,3,9].forEach(z=>windowAt(wx(-1,.06),2.1,z,ryOf(-1),1.4,2.6));
-    [-9,-4,3,9].forEach(z=>windowAt(wx(1,.06),2.1,z,ryOf(1),1.4,2.6));
-    windowAt(-8.5,2.1,-hd+.06,0,1.4,2.6); windowAt(8.5,2.1,-hd+.06,0,1.4,2.6);
-    windowAt(-8,2.1,hd-.06,Math.PI,1.4,2.6); windowAt(9.5,2.1,hd-.06,Math.PI,1.4,2.6);
+    [-12,-4,3,9].forEach(z=>windowAt(wx(-1,.06),2.1,z,ryOf(-1),2.4,2.6));
+    [-9,-4,3,9].forEach(z=>windowAt(wx(1,.06),2.1,z,ryOf(1),2.4,2.6));
+    windowAt(-8.5,2.1,-hd+.06,0,2.4,2.6); windowAt(8.5,2.1,-hd+.06,0,2.4,2.6);
+    windowAt(-8,2.1,hd-.06,Math.PI,2.4,2.6); windowAt(9.5,2.1,hd-.06,Math.PI,2.4,2.6);
     sconceMesh(wx(-1,.1),-6,ryOf(-1)); sconceMesh(wx(1,.1),-6.5,ryOf(1));
     break;}
   }
@@ -1038,10 +1046,6 @@ function ambience(){
     const n=a.sampleRate*3,b=a.createBuffer(1,n,a.sampleRate),x=b.getChannelData(0);for(let i=0;i<n;i++)x[i]=Math.random()*2-1;
     const s=a.createBufferSource();s.buffer=b;s.loop=true;const bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=400;bp.Q.value=.6;
     const wg=a.createGain();wg.gain.value=.022;s.connect(bp);bp.connect(wg);wg.connect(a.destination);s.start();
-    const rn=a.sampleRate*2,rb=a.createBuffer(1,rn,a.sampleRate),rx=rb.getChannelData(0);for(let i=0;i<rn;i++)rx[i]=Math.random()*2-1;
-    const rs=a.createBufferSource();rs.buffer=rb;rs.loop=true;const rh=a.createBiquadFilter();rh.type='highpass';rh.frequency.value=1800;
-    const rl=a.createBiquadFilter();rl.type='lowpass';rl.frequency.value=7000;const rg=a.createGain();rg.gain.value=.05;
-    rs.connect(rh);rh.connect(rl);rl.connect(rg);rg.connect(a.destination);rs.start();
     const od=a.createOscillator(),dl=a.createBiquadFilter();droneG=a.createGain();droneG.gain.value=0;od.type='sawtooth';od.frequency.value=62;
     dl.type='lowpass';dl.frequency.value=260;od.connect(dl);dl.connect(droneG);droneG.connect(a.destination);od.start();
   }catch(e){}
@@ -1056,19 +1060,19 @@ function banner(t,ms){const b=$('banner');b.textContent=t;b.style.opacity=1;clea
 function updateHud(){
   if(door>=DOORS.length) return;
   const D=DOORS[door];
-  $('dn').textContent='🚪 Cửa '+(door+1)+'/5';
-  $('hp').textContent='❤️'.repeat(Math.max(hp,0))+'🖤'.repeat(MAX_HP-Math.max(hp,0));
-  $('hn').textContent='💡 Gợi ý: '+hints;
-  $('ks').textContent='🔑 '+D.questions.map((q,i)=>solved[i]?q.digit:'_').join(' · ');
+  $('dn').textContent='Cửa '+(door+1)+'/5';
+  $('hp').innerHTML='MẠNG '+'<span style="color:#d01a1a">&#9829;</span>'.repeat(Math.max(hp,0))+'<span style="color:#4a4a4a">&#9829;</span>'.repeat(MAX_HP-Math.max(hp,0));
+  $('hn').textContent='Gợi ý: '+hints;
+  $('ks').textContent='Chìa khóa: '+D.questions.map((q,i)=>solved[i]?q.digit:'_').join(' · ');
   $('ot').textContent=solved.every(Boolean)?D.order_text:'';
-  $('sl').textContent='⇧ Shift Lock: '+(shiftLock?'BẬT':'TẮT');
+  $('sl').textContent='Shift Lock: '+(shiftLock?'BẬT':'TẮT');
   $('sl').className=shiftLock?'on':'';
-  $('lockbtn').className=shiftLock?'on':''; $('lockbtn').textContent=shiftLock?'🔒':'🔓';
+  $('lockbtn').className=shiftLock?'on':''; $('lockbtn').textContent='SL';
   $('lockbtn').style.display=state==='play'?'block':'none';
   $('lowhp').className=(hp===1&&state==='play')?'pulse':'';
 }
 // Shift Lock kiểu Roblox: chuột bị khóa ở GIỮA màn hình (con trỏ ẩn, hiện tâm ngắm), xoay camera không cần bấm chuột.
-// Bấm Shift (hoặc nút 🔒) để bật/tắt. Nếu trình duyệt chặn khóa chuột trong khung nhúng -> dùng nút ↗ mở game ở tab mới.
+// Bấm Shift (hoặc nút ) để bật/tắt. Nếu trình duyệt chặn khóa chuột trong khung nhúng -> dùng nút TAB MỚI mở game ở tab mới.
 const inFrame=(function(){try{return window.top!==window;}catch(e){return true;}})();
 const isLocked=()=>document.pointerLockElement===canvas;
 function lockFail(){
@@ -1091,12 +1095,12 @@ function syncLock(){
 }
 function toggleSL(){
   shiftLock=!shiftLock; lockFailShown=false; syncLock(); updateHud();
-  banner(shiftLock?'🔒 Shift Lock: BẬT — chuột khóa ở giữa màn hình':'🔓 Shift Lock: TẮT — giữ chuột trái/phải và kéo để nhìn',1800);
+  banner(shiftLock?'Shift Lock: BẬT — chuột khóa ở giữa màn hình':'Shift Lock: TẮT — giữ chuột trái/phải và kéo để nhìn',1800);
 }
 document.addEventListener('pointerlockchange',()=>{
   if(isLocked()){lockEver=true;lockBlocked=false;}
   else if(shiftLock&&!expectUnlock&&state==='play'&&!modalOpen){   // lỡ nhả chuột (Esc): giữ Shift Lock BẬT như Roblox
-    banner('🔓 Chuột đã nhả. Bấm vào màn hình để khóa lại (Shift để tắt Shift Lock).',2600);}
+    banner('Chuột đã nhả. Bấm vào màn hình để khóa lại (Shift để tắt Shift Lock).',2600);}
   setCursor();
 });
 document.addEventListener('pointerlockerror',lockFail);
@@ -1109,7 +1113,7 @@ $('sl').onclick=()=>{if(state==='play'&&!modalOpen)toggleSL();};
 function damage(msg){
   hp--; shake=0.3; sBad();
   const f=$('flash'); f.style.background='#a00'; f.style.opacity=.75; setTimeout(()=>f.style.opacity=0,350);
-  banner(msg+'  -1 ❤️',2500); updateHud();
+  banner(msg+'  -1 mạng',2500); updateHud();
   if(hp<=0) gameOver('Bạn gục ngã ở cửa số '+(door+1)+'...\nBạn phải bắt đầu lại từ cửa số 1.');
 }
 function gameOver(msg){
@@ -1145,7 +1149,7 @@ function closeModal(silent){modalOpen=false;$('modal').style.display='none';$('m
   if(!silent) syncLock();}
 function openQ(i){
   const q=DOORS[door].questions[i]; modalMode='q'; modalIdx=i;
-  $('mt').textContent='📜 Manh mối '+(i+1); $('mq').textContent=q.q; $('b2').style.display='inline-block';
+  $('mt').textContent='Manh mối '+(i+1); $('mq').textContent=q.q; $('b2').style.display='inline-block';
   $('mi').style.display='none'; $('b1').style.display='none';
   optOrder=shuffle([0,1,2,3]); wrongSet={};            // q.o[0] là đáp án đúng
   const box=$('opts'); box.innerHTML=''; box.style.display='flex';
@@ -1155,22 +1159,22 @@ function openQ(i){
     const t=document.createElement('span'); t.textContent=q.o[oi];
     b.appendChild(l); b.appendChild(t); b.onclick=()=>choose(k); box.appendChild(b);
   });
-  openModal(); if(hintShown[door+'-'+i]) $('fb').textContent='💡 '+q.hint;
+  openModal(); if(hintShown[door+'-'+i]) $('fb').textContent=''+q.hint;
 }
 function choose(k){
   if(!modalOpen||modalMode!=='q'||wrongSet[k]) return;
   const q=DOORS[door].questions[modalIdx];
   if(optOrder[k]===0){
     solved[modalIdx]=true; sGood(); closeModal(); refreshClues(); updateHud();
-    banner('🔑 Đúng! Chìa khóa '+(modalIdx+1)+' = '+q.digit+(solved.every(Boolean)?'\nĐã đủ chìa! Hãy ra mở cửa.':''),3000);
+    banner('Đúng! Chìa khóa '+(modalIdx+1)+' = '+q.digit+(solved.every(Boolean)?'\nĐã đủ chìa! Hãy ra mở cửa.':''),3000);
   } else {
-    wrongSet[k]=true; $('opts').children[k].classList.add('bad'); $('fb').textContent='❌ Sai rồi!';
+    wrongSet[k]=true; $('opts').children[k].classList.add('bad'); $('fb').textContent='Sai rồi!';
     damage('Một thực thể tấn công bạn!');
   }
 }
 function openCode(){
   const D=DOORS[door]; modalMode='code';
-  $('mt').textContent='🔐 Ổ khóa'; $('mq').textContent='Nhập mật mã '+D.questions.length+' chữ số. '+D.order_text;
+  $('mt').textContent='Ổ khóa'; $('mq').textContent='Nhập mật mã '+D.questions.length+' chữ số. '+D.order_text;
   $('b2').style.display='none'; $('opts').style.display='none'; $('mi').style.display=''; $('b1').style.display=''; openModal();
 }
 function submit(){
@@ -1178,15 +1182,15 @@ function submit(){
   const v=$('mi').value; if(!v.trim()) return;
   const D=DOORS[door];
   const code=D.order.map(i=>D.questions[i].digit).join('');
-  if(v.trim()===code){ closeModal(); doorOpen=true; sGood(); tone(70,1.2,'sawtooth',.12,40); banner('🔓 Cửa đã mở! Hãy bước vào ánh sáng...',3000); }
-  else { $('fb').textContent='❌ Mật mã sai!'; $('mi').value=''; damage('Ổ khóa phóng điện vào bạn!'); }
+  if(v.trim()===code){ closeModal(); doorOpen=true; sGood(); tone(70,1.2,'sawtooth',.12,40); banner('Cửa đã mở! Hãy bước vào ánh sáng...',3000); }
+  else { $('fb').textContent='Mật mã sai!'; $('mi').value=''; damage('Ổ khóa phóng điện vào bạn!'); }
 }
 $('b1').onclick=submit; $('b3').onclick=()=>closeModal();
 $('b2').onclick=()=>{
   const k=door+'-'+modalIdx, q=DOORS[door].questions[modalIdx];
-  if(hintShown[k]){$('fb').textContent='💡 '+q.hint;return;}
+  if(hintShown[k]){$('fb').textContent=''+q.hint;return;}
   if(hints<=0){$('fb').textContent='Hết lượt gợi ý!';return;}
-  hints--; hintShown[k]=true; $('fb').textContent='💡 '+q.hint; updateHud();
+  hints--; hintShown[k]=true; $('fb').textContent=''+q.hint; updateHud();
 };
 $('mi').addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
 
@@ -1198,10 +1202,10 @@ function startRoom(){
   banner('CỬA '+(door+1)+': '+DOORS[door].name+'\n'+DOORS[door].intro,4500);
 }
 function showOnly(id){['menu','howto','settings','over','win'].forEach(i=>$(i).style.display=(i===id?'flex':'none'));}
-function resetGame(){musicStop();hp=MAX_HP;hints=HINTS0;door=0;hintShown={};state='play';ambience();
+function resetGame(){musicStop();hp=MAX_HP;hints=HINTS0;door=0;hintShown={};state='play';ambience();playMusicStart();
   camera.fov=72;camera.updateProjectionMatrix();$('scare').style.display='none';
   showOnly(''); startRoom(); syncLock();}
-function toMenu(){state='menu';closeModal(true);syncLock();parkGhost();showOnly('menu');buildRoom();camera.position.set(0,1.6,RD/2-2);yaw=0;pitch=0;musicStart();}
+function toMenu(){playMusicStop();state='menu';closeModal(true);syncLock();parkGhost();showOnly('menu');buildRoom();camera.position.set(0,1.6,RD/2-2);yaw=0;pitch=0;musicStart();}
 $('start').onclick=resetGame; $('retry').onclick=resetGame; $('again').onclick=resetGame;
 function setRF(v){RF=!!v; saveNum('doors_rf',RF?1:0); $('rfchk').checked=RF; $('rfchk2').checked=RF;}
 $('rfchk').onchange=()=>setRF($('rfchk').checked); $('rfchk2').onchange=()=>setRF($('rfchk2').checked); setRF(RF);
@@ -1257,6 +1261,11 @@ function musicStart(){
   if(p&&p.then) p.then(ok).catch(blocked); else ok();
 }
 function musicStop(){ $('musichint').style.display='none'; fadeTo(0,()=>bgm.pause()); }
+// Nhạc nền khi đang chơi (nhỏ lại khi ma xuất hiện)
+const pbgm=new Audio(); pbgm.loop=true; pbgm.preload='auto'; if(PLAY_SRC) pbgm.src=PLAY_SRC;
+let pduck=1;
+function playMusicStart(){ if(!PLAY_SRC||!pbgm.paused) return; pbgm.volume=Math.min(1,musicVol*.8); const p=pbgm.play(); if(p&&p.catch)p.catch(()=>{}); }
+function playMusicStop(){ pbgm.pause(); try{pbgm.currentTime=0;}catch(e){} }
 $('vr').oninput=()=>{musicVol=+$('vr').value/100;$('vv').textContent=$('vr').value+'%';saveNum('doors_vol',$('vr').value);
   if(!bgm.paused){clearInterval(fadeI);bgm.volume=musicVol;}};
 ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{if(state==='menu'&&bgm.paused)musicStart();},true));
@@ -1264,18 +1273,18 @@ function nextRoom(){
   transitioning=true; $('fade').style.opacity=1;
   setTimeout(()=>{
     door++;
-    if(door>=DOORS.length){state='win';syncLock();updateHud();parkGhost();showOnly('win');}
+    if(door>=DOORS.length){playMusicStop();state='win';syncLock();updateHud();parkGhost();showOnly('win');}
     else startRoom();
     $('fade').style.opacity=0; transitioning=false;
   },900);
 }
 function toggleHide(sp){
   if(!hidden){
-    if(gh.phase!=='idle'&&Math.hypot(gh.x-camera.position.x,gh.z-camera.position.z)<3&&gh.phase==='hunt'){banner('😱 Quá muộn! Ma ở quá gần!',1500);return;}
+    if(gh.phase!=='idle'&&Math.hypot(gh.x-camera.position.x,gh.z-camera.position.z)<3&&gh.phase==='hunt'){banner('Quá muộn! Ma ở quá gần!',1500);return;}
     hidden=true; curSpot=sp; camera.position.set(sp.hx,sp.hy,sp.hz); yaw=sp.yaw; pitch=0; spot.intensity=0;
     $('hide').className=sp.type; $('hide').style.display='block'; noise(.25,.08); tone(90,.2,'square',.05,70);
   } else {
-    if(gh.phase!=='idle'){banner('🤫 Ma vẫn còn ở đây... đừng ra!',1600);return;}
+    if(gh.phase!=='idle'){banner('Ma vẫn còn ở đây... đừng ra!',1600);return;}
     hidden=false; let ex=curSpot.ex,ez=curSpot.ez,k=0;
     while(hit(ex,ez)&&k<4){ex+=curSpot.fx*.5;ez+=curSpot.fz*.5;k++;}
     camera.position.set(ex,1.6,ez); spot.intensity=2.1; $('hide').style.display='none'; curSpot=null; noise(.2,.06);
@@ -1290,7 +1299,7 @@ function act(){
   else if(cur.kind==='door'){
     if(doorOpen) return;
     if(solved.every(Boolean)) openCode();
-    else banner('🔒 Cửa bị khóa. Cần đủ 3 chìa khóa ('+solved.filter(Boolean).length+'/3).',2200);
+    else banner('Cửa bị khóa. Cần đủ 3 chìa khóa ('+solved.filter(Boolean).length+'/3).',2200);
   }
 }
 
@@ -1298,7 +1307,7 @@ function act(){
 function startGhost(){
   gh.phase='warn'; gh.t=5.2; gh.alpha=0;
   if(modalOpen) closeModal(true), syncLock();
-  banner('⚡ ĐÈN CHỚP… CÓ THỨ GÌ ĐÓ ĐANG TỚI!\nTRỐN NGAY: tủ hoặc gầm giường (E)',4600);
+  banner('ĐÈN CHỚP… CÓ THỨ GÌ ĐÓ ĐANG TỚI!\nTRỐN NGAY: tủ hoặc gầm giường (E)',4600);
   tone(90,1.6,'sawtooth',.12,45);
 }
 function ghostSpawn(){
@@ -1349,7 +1358,7 @@ function updGhost(dt){
         setTimeout(()=>{f.style.transition='opacity .45s'; f.style.opacity=0; f.style.background='#a00';},60);}}
     if(gh.t<=0){gh.phase='hunt'; gh.t=0; gh.step=0; camera.fov=72; camera.updateProjectionMatrix(); $('bars').className='';
       noise(1.2,.35); tone(60,1.4,'sawtooth',.22,200); whisper('chạy đi...');
-      banner('😱 NÓ ĐANG ĐUỔI THEO BẠN!\nTRỐN NGAY (tủ / gầm giường — E)',3200);}
+      banner('NÓ ĐANG ĐUỔI THEO BẠN!\nTRỐN NGAY (tủ / gầm giường — E)',3200);}
     return;
   }
   if(P==='hunt'||P==='search') gh.alpha=Math.min(1,gh.alpha+dt*1.4);
@@ -1374,7 +1383,7 @@ function updGhost(dt){
     gh.t-=dt; gh.peek=Math.max(0,gh.peek-dt*1.2); const sp=curSpot;
     if(sp) moveGhost(gh.x+sp.fx*6,gh.z+sp.fz*6,2.2,dt);
     gh.alpha=Math.max(0,Math.min(1,gh.t/1.6));
-    if(gh.t<=0){parkGhost(); ghostTimer=45+Math.random()*35; banner('😮‍💨 Ma đã đi rồi... Bạn có thể ra ngoài.',2800);}
+    if(gh.t<=0){parkGhost(); ghostTimer=45+Math.random()*35; banner('Ma đã đi rồi... Bạn có thể ra ngoài.',2800);}
   }
 }
 function animGhost(dt){
@@ -1475,6 +1484,7 @@ function hit(x,z){for(const b of obstacles){if(x>b.x1-0.35&&x<b.x2+0.35&&z>b.z1-
 function update(dt){
   tt+=dt;
   stormUpdate(dt); pulseClues();
+  if(PLAY_SRC&&!pbgm.paused){pduck+=((gh.phase!=='idle'&&state==='play'?.3:1)-pduck)*Math.min(1,dt*2);pbgm.volume=Math.max(0,Math.min(1,musicVol*.8*pduck));}
   for(let i=0;i<DUST;i++){dustPos[i*3+1]+=Math.sin(tt*.6+i)*0.0009+0.0006;dustPos[i*3]+=Math.cos(tt*.4+i*1.7)*0.0007;
     if(dustPos[i*3+1]>RH)dustPos[i*3+1]=0;}
   dustGeo.attributes.position.needsUpdate=true;
@@ -1529,7 +1539,7 @@ function update(dt){
 
   // tương tác
   cur=null; let txt='';
-  if(hidden){ txt=gh.phase==='idle'?'[E] Ra khỏi chỗ trốn':'🤫 Đừng cử động...'; }
+  if(hidden){ txt=gh.phase==='idle'?'[E] Ra khỏi chỗ trốn':'Đừng cử động...'; }
   else if(!modalOpen&&!transitioning){
     const px=camera.position.x,pz=camera.position.z; let best=99;
     for(const o of inter){
@@ -1609,10 +1619,14 @@ iframe[title="streamlit.components.v1.html"]{
     unsafe_allow_html=True,
 )
 
-_html = GAME_HTML.replace("__DATA__", build_data()).replace("__MUSIC__", load_music())
-if not load_music():
+_html = (GAME_HTML.replace("__DATA__", build_data())
+         .replace("__MUSIC__", load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True))
+         .replace("__MUSIC2__", load_mp3(PLAY_MUSIC_FILE)))
+if not load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True):
     st.warning(f"Không tìm thấy file nhạc '{MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc ở menu.")
+if not load_mp3(PLAY_MUSIC_FILE):
+    st.warning(f"Không tìm thấy file nhạc '{PLAY_MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc nền khi chơi.")
 components.html(_html, height=720, scrolling=False)
 st.caption("Shift Lock kiểu Roblox cần trình duyệt cho khóa chuột. Nếu không khóa được trong khung này, "
-           "bấm nút ↗ trong game hoặc tải bản HTML bên dưới và mở bằng trình duyệt.")
-st.download_button("⬇️ Tải game (.html) để chơi độc lập", _html, file_name="doors3d.html", mime="text/html")
+           "bấm nút TAB MỚI trong game hoặc tải bản HTML bên dưới và mở bằng trình duyệt.")
+st.download_button("Tải game (.html) để chơi độc lập", _html, file_name="doors3d.html", mime="text/html")
