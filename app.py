@@ -109,7 +109,12 @@ DOORS = [
 ]
 
 MUSIC_FILE = "doors-roblox-ost-elevator-jam-made-with-Voicemod.mp3"
-PLAY_MUSIC_FILE = "05._In_The_House.mp3"   # nhạc nền khi đang chơi
+PLAY_MUSIC_FILE = "05. In The House.mp3"   # nhạc nền khi đang chơi
+
+
+def _norm(s: str) -> str:
+    """So khớp tên file không phân biệt hoa/thường, dấu cách, gạch dưới, dấu chấm."""
+    return "".join(ch for ch in s.lower() if ch.isalnum())
 
 
 @st.cache_data(show_spinner=False)
@@ -118,12 +123,18 @@ def load_mp3(name: str, skip: str = "", fallback: bool = False) -> str:
     base = Path(__file__).resolve().parent
     p = base / name
     if not p.exists():
-        if not fallback:
+        want = _norm(Path(name).stem)
+        files = sorted(base.glob("*.mp3"))
+        same = [f for f in files if _norm(f.stem) == want]
+        if same:
+            p = same[0]
+        elif fallback:
+            other = [f for f in files if _norm(f.stem) != _norm(Path(skip).stem)]
+            if not other:
+                return ""
+            p = other[0]
+        else:
             return ""
-        found = [f for f in sorted(base.glob("*.mp3")) if f.name != skip]
-        if not found:
-            return ""
-        p = found[0]
     return "data:audio/mpeg;base64," + base64.b64encode(p.read_bytes()).decode()
 
 
