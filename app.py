@@ -160,6 +160,7 @@ GAME_HTML = r"""
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>
   html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:'Times New Roman','Noto Serif',Georgia,serif;color:#eee;user-select:none}
   /* Khung 16:9: #stage luôn giữ tỉ lệ 16:9 (letterbox), #ui là lớp giao diện thiết kế ở 1280x720 rồi scale theo khung */
@@ -259,6 +260,19 @@ GAME_HTML = r"""
   #box .opt b{background:transparent;color:#8a0f0f;border:3px solid #8a0f0f;text-shadow:none;font-size:22px;min-width:40px;height:40px;line-height:36px}
   #box .opt.bad{opacity:.5;text-decoration:line-through;text-decoration-thickness:3px;cursor:not-allowed;background:rgba(0,0,0,.06);border-color:#7a6e55;color:#5e5543}
   #box .opt.bad:hover{background:rgba(0,0,0,.06);color:#5e5543}
+  html,body,#stage,#c canvas{touch-action:none;overscroll-behavior:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;-webkit-user-select:none}
+  #tui{display:none}
+  .tb{position:absolute;z-index:8;border-radius:50%;border:2px solid #9a2a2a;background:rgba(0,0,0,.45);color:#eee;font-weight:bold;
+      display:flex;align-items:center;justify-content:center;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+  .tb.on{background:rgba(120,90,10,.75);border-color:#ffd86b}
+  #tE{right:40px;bottom:70px;width:110px;height:110px;font-size:40px}
+  #tRun{right:182px;bottom:34px;width:84px;height:84px;font-size:17px;letter-spacing:1px}
+  #joyB,#joyK{position:absolute;border-radius:50%;display:none;pointer-events:none;z-index:7}
+  #joyB{width:150px;height:150px;margin:-75px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.06)}
+  #joyK{width:64px;height:64px;margin:-32px;background:rgba(255,255,255,.3);border:2px solid rgba(255,255,255,.55)}
+  .touch #fs,.touch #nt{padding:10px 16px;font-size:18px} .touch #nt{right:112px}
+  #rot{position:fixed;inset:0;z-index:99;background:#000;color:#d9b45a;display:none;align-items:center;justify-content:center;
+       text-align:center;padding:20px;font-size:22px;letter-spacing:2px}
 </style>
 </head>
 <body>
@@ -270,6 +284,7 @@ GAME_HTML = r"""
 <button id="fs" title="Toàn màn hình">FULL</button>
 <button id="nt" title="Mở game ở tab mới (Shift Lock chuẩn như Roblox)">TAB MỚI</button>
 <button id="lockbtn" title="Shift Lock (phím Shift)">SL</button>
+<div id="tui"><div id="joyB"></div><div id="joyK"></div><div id="tE" class="tb">E</div><div id="tRun" class="tb">CHẠY</div></div>
 <div id="prompt"></div>
 <div id="banner"></div>
 <div id="whisper"></div>
@@ -282,7 +297,7 @@ GAME_HTML = r"""
 <div id="modal"><div id="box">
   <div id="mt"></div><div id="mq"></div>
   <div id="opts"></div>
-  <input id="mi" autocomplete="off" spellcheck="false">
+  <input id="mi" autocomplete="off" spellcheck="false" inputmode="numeric">
   <div id="fb"></div>
   <button id="b1">Trả lời</button><button id="b2">Gợi ý</button><button id="b3">Đóng (Esc)</button>
 </div></div>
@@ -325,6 +340,7 @@ GAME_HTML = r"""
       <li>Nếu chạy trong Streamlit mà không khóa được chuột (trình duyệt chặn), bấm nút <kbd>TAB MỚI</kbd> góc phải trên để mở game ở tab mới</li>
       <li><kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> hoặc bấm chuột: chọn đáp án khi trả lời câu hỏi</li>
       <li>Giữ <kbd>Space</kbd>: chạy</li>
+      <li><b>Điện thoại</b> (nên xoay ngang): cần gạt bên trái màn hình để đi, vuốt bên phải để nhìn, nút <kbd>E</kbd> để tương tác, giữ nút <kbd>CHẠY</kbd> để chạy</li>
       <li><kbd>E</kbd>: tương tác (xem manh mối, mở cửa, trốn vào tủ / gầm giường)</li>
       <li><kbd>Esc</kbd>: đóng bảng câu hỏi</li>
     </ul>
@@ -369,6 +385,7 @@ GAME_HTML = r"""
   <div><button id="again">Chơi lại</button><button id="tomenu2">Menu</button></div></div>
 
 </div></div>
+<div id="rot">XOAY NGANG ĐIỆN THOẠI ĐỂ CHƠI</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
@@ -382,8 +399,9 @@ const $=id=>document.getElementById(id);
 const SRC='<!DOCTYPE html>\n'+document.documentElement.outerHTML;   // bản sao trang để mở ở tab mới
 function loadNum(k,d,lo,hi){try{const v=parseInt(localStorage.getItem(k));return(v>=lo&&v<=hi)?v:d;}catch(e){return d;}}
 function saveNum(k,v){try{localStorage.setItem(k,v);}catch(e){}}
-let Q=loadNum('doors_q',8,1,10), HQ=Q>=6;       // mức đồ họa 1-10 (<=5: Thấp, >=6: Cao)
-let STW=1280, STH=720, mouseX=0, mouseY=0, mouseIn=false, optOrder=[], wrongSet={}, lockFailShown=false, lockBlocked=false, lockEver=false, lockMsgT=0;
+const COARSE=!!(window.matchMedia&&matchMedia('(pointer:coarse)').matches);   // điện thoại / máy tính bảng
+let Q=loadNum('doors_q',COARSE?4:8,1,10), HQ=Q>=6;       // mức đồ họa 1-10 (<=5: Thấp, >=6: Cao)
+let STW=1280, STH=720, mouseX=0, mouseY=0, mouseIn=false, optOrder=[], wrongSet={}, lockFailShown=false, lockBlocked=false, lockEver=false, lockMsgT=0, touchMode=COARSE;
 // Cao: độ phân giải gần đầy đủ. Thấp: render độ phân giải rất nhỏ rồi phóng to kiểu pixel (low-poly retro)
 const pr=()=>HQ?Math.max(.8,Math.min(window.devicePixelRatio||1,.55+Q*.15)):(0.28+Q*0.05);
 let RF=loadNum('doors_rf',0,0,1)===1;   // giảm hiệu ứng chớp sáng
@@ -417,6 +435,7 @@ function fit(){
   STW=w;STH=h; stage.style.width=w+'px'; stage.style.height=h+'px';
   ui.style.transform='scale('+(w/1280)+')';
   renderer.setSize(w,h); camera.aspect=16/9; camera.updateProjectionMatrix();
+  $('rot').style.display=(touchMode&&H>W)?'flex':'none';
 }
 fit();
 
@@ -1069,7 +1088,8 @@ function whisper(txt){const w=$('whisper');w.textContent=txt||WH[Math.floor(Math
 function banner(t,ms){const b=$('banner');b.textContent=t;b.style.opacity=1;clearTimeout(bannerT);
   bannerT=setTimeout(()=>b.style.opacity=0,ms||2500);}
 function updateHud(){
-  $('lockbtn').style.display=state==='play'?'block':'none';
+  $('lockbtn').style.display=(state==='play'&&!touchMode)?'block':'none';
+  $('tui').style.display=(touchMode&&state==='play')?'block':'none';
   $('lowhp').className=(hp===1&&state==='play')?'pulse':'';
   if(door>=DOORS.length) return;
   const D=DOORS[door];
@@ -1081,7 +1101,7 @@ function updateHud(){
   $('sl').textContent='Shift Lock: '+(shiftLock?'BẬT':'TẮT');
   $('sl').className=shiftLock?'on':'';
   $('lockbtn').className=shiftLock?'on':''; $('lockbtn').textContent='SL';
-  $('lockbtn').style.display=state==='play'?'block':'none';
+  $('lockbtn').style.display=(state==='play'&&!touchMode)?'block':'none';
   $('lowhp').className=(hp===1&&state==='play')?'pulse':'';
 }
 // Shift Lock kiểu Roblox: chuột bị khóa ở GIỮA màn hình (con trỏ ẩn, hiện tâm ngắm), xoay camera không cần bấm chuột.
@@ -1503,6 +1523,56 @@ $('nt').onclick=()=>{try{
   if(!w) banner('Trình duyệt chặn cửa sổ mới — hãy cho phép popup rồi bấm lại.',3000);
 }catch(e){banner('Không mở được tab mới.',2500);}};
 $('fs').onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();}catch(e){}};
+if(!document.documentElement.requestFullscreen) $('fs').style.display='none';   // iPhone không hỗ trợ toàn màn hình
+
+// ----- Điều khiển cảm ứng: cần gạt trái = đi, vuốt phải = nhìn, nút E = tương tác, nút CHẠY = chạy -----
+const joy={x:0,y:0}; let touchRun=false, joyId=null, joyOX=0, joyOY=0, lookId=null, lookX=0, lookY=0;
+const toUI=(cx,cy)=>{const r=stage.getBoundingClientRect(),k=1280/r.width;return[(cx-r.left)*k,(cy-r.top)*k];};
+const joyR=()=>60*stage.getBoundingClientRect().width/1280;
+function setTouch(on){
+  touchMode=on; document.body.classList.toggle('touch',on);
+  $('help').style.display=on?'none':''; $('sl').style.display=on?'none':'';
+  $('lockbtn').style.display=(!on&&state==='play')?'block':'none'; $('tui').style.display=(on&&state==='play')?'block':'none';
+  fit();
+}
+function stopJoy(){joyId=null;joy.x=joy.y=0;$('joyB').style.display=$('joyK').style.display='none';}
+function placeJoy(el,cx,cy){const p=toUI(cx,cy);el.style.left=p[0]+'px';el.style.top=p[1]+'px';el.style.display='block';}
+addEventListener('touchstart',()=>{if(!touchMode)setTouch(true);},{capture:true,passive:true});   // lần chạm đầu tiên -> bật giao diện cảm ứng
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();                                   // chặn cuộn trang + chuột giả lập
+  if(state!=='play'||modalOpen) return;
+  const r=stage.getBoundingClientRect(), mid=r.left+r.width*.5;
+  for(const t of e.changedTouches){
+    if(t.clientX<mid&&joyId===null){joyId=t.identifier;joyOX=t.clientX;joyOY=t.clientY;placeJoy($('joyB'),joyOX,joyOY);placeJoy($('joyK'),joyOX,joyOY);}
+    else if(t.clientX>=mid&&lookId===null){lookId=t.identifier;lookX=t.clientX;lookY=t.clientY;}
+  }
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(t.identifier===joyId){
+      let dx=t.clientX-joyOX, dy=t.clientY-joyOY; const R=joyR(), d=Math.hypot(dx,dy);
+      if(d>R){dx*=R/d;dy*=R/d;}
+      joy.x=dx/R; joy.y=dy/R; if(Math.hypot(joy.x,joy.y)<.15){joy.x=joy.y=0;}    // vùng chết
+      placeJoy($('joyK'),joyOX+dx,joyOY+dy);
+    } else if(t.identifier===lookId){
+      if(state==='play'&&!modalOpen&&gh.phase!=='reveal'){
+        const k=.0035*1280/Math.max(1,STW);
+        yaw-=(t.clientX-lookX)*k; pitch=Math.max(-1.3,Math.min(1.3,pitch-(t.clientY-lookY)*k));
+      }
+      lookX=t.clientX; lookY=t.clientY;
+    }
+  }
+},{passive:false});
+const tEnd=e=>{for(const t of e.changedTouches){if(t.identifier===joyId)stopJoy(); if(t.identifier===lookId)lookId=null;}};
+canvas.addEventListener('touchend',tEnd); canvas.addEventListener('touchcancel',tEnd);
+function tBtn(el,down,up){
+  el.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();down();},{passive:false});
+  ['touchend','touchcancel'].forEach(n=>el.addEventListener(n,e=>{e.preventDefault();if(up)up();}));
+}
+tBtn($('tE'),()=>{if(state==='play'&&!transitioning)act();});
+tBtn($('tRun'),()=>{touchRun=true;$('tRun').classList.add('on');},()=>{touchRun=false;$('tRun').classList.remove('on');});
+setTouch(touchMode);
 
 function hit(x,z){for(const b of obstacles){if(x>b.x1-0.35&&x<b.x2+0.35&&z>b.z1-0.35&&z<b.z2+0.35)return true;}return false;}
 
@@ -1518,6 +1588,7 @@ function update(dt){
   animGhost(dt);
   if(state==='scare'){ updScare(dt); return; }
   if(state!=='play') return;
+  if(modalOpen&&joyId!==null) stopJoy();
   if(!modalOpen){ if(keys.ArrowLeft) yaw+=1.8*dt; if(keys.ArrowRight) yaw-=1.8*dt; }
   // Shift Lock dự phòng (không khóa được chuột): xoay camera theo vị trí chuột so với tâm khung
   // (khi không khóa được chuột, con trỏ ẩn nhưng vẫn chạm mép màn hình -> chạm mép thì tiếp tục xoay về phía đó)
@@ -1529,10 +1600,11 @@ function update(dt){
   if(!modalOpen&&!hidden&&!transitioning&&gh.phase!=='reveal'){
     let f=0,s=0;
     if(keys.KeyW||keys.ArrowUp)f++; if(keys.KeyS||keys.ArrowDown)f--; if(keys.KeyD)s++; if(keys.KeyA)s--;
+    if(touchMode&&joyId!==null){f-=joy.y; s+=joy.x;}
     if(f||s){
-      moving=true; const run=keys.Space, sp=(run?5.2:3.2)*dt, l=Math.hypot(f,s);
+      moving=true; const run=keys.Space||touchRun, sp=(run?5.2:3.2)*dt, l=Math.hypot(f,s), mag=Math.min(1,l);
       const fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);
-      const dx=(fx*f+rx*s)/l*sp, dzz=(fz*f+rz*s)/l*sp;
+      const dx=(fx*f+rx*s)/l*sp*mag, dzz=(fz*f+rz*s)/l*sp*mag;
       if(!hit(camera.position.x+dx,camera.position.z)) camera.position.x+=dx;
       if(!hit(camera.position.x,camera.position.z+dzz)) camera.position.z+=dzz;
       bob+=dt*(run?12:9);
