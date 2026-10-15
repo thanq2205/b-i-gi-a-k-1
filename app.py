@@ -220,24 +220,25 @@ GAME_HTML = r"""
   #modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
          background:rgba(0,0,0,.65);z-index:15}
   /* Bảng câu hỏi = một tờ giấy cũ */
-  #box{position:relative;color:#2a1c10;border:0;border-radius:2px;padding:26px 30px;width:min(620px,84%);
-       text-align:center;transform:rotate(-.5deg);
-       background:
-         radial-gradient(circle at 82% 14%,rgba(120,70,20,.22) 0 6%,transparent 14%),
-         radial-gradient(circle at 12% 86%,rgba(110,60,15,.25) 0 7%,transparent 16%),
-         radial-gradient(circle at 70% 90%,rgba(90,40,10,.14) 0 5%,transparent 12%),
-         radial-gradient(ellipse at 30% 15%,#f6ebd0 0%,#e8d6aa 65%,#cdb582 100%);
-       box-shadow:0 14px 50px #000,inset 0 0 46px rgba(120,80,20,.45),inset 0 0 0 1px rgba(90,60,20,.25)}
-  #mt{color:#7a1a1a;font-size:22px;margin-bottom:10px;font-weight:bold;letter-spacing:1px}
-  #mq{font-size:19px;line-height:1.5;margin-bottom:14px;color:#2a1c10}
-  #mi{width:80%;padding:9px;font-size:20px;border:0;border-bottom:2px solid #5a3a1a;border-radius:0;
-      background:rgba(255,255,255,.28);color:#2a1c10;text-align:center;outline:none;font-family:inherit}
-  #fb{min-height:24px;margin:10px 0;color:#8a1010;font-style:italic}
-  #box button{background:rgba(70,40,15,.07);color:#3a1a0a;border:1.5px solid #5a3a1a;box-shadow:none}
-  #box button:hover{background:#6a1a1a;color:#f6ebd0;box-shadow:none}
-  #box .opt b{background:#6a1a1a;color:#f6ebd0}
-  #box .opt.bad{opacity:.45;text-decoration:line-through;cursor:not-allowed;background:rgba(0,0,0,.08);border-color:#8a7a5a;color:#6a5a40}
-  #box .opt.bad:hover{background:rgba(0,0,0,.08);color:#6a5a40}
+  /* Bảng câu hỏi = tờ giấy nhàu, rách mép, chữ viết tay bằng bút chì (kiểu mấy tờ giấy trong Doors) */
+  #box{position:relative;color:#2b2722;border:0;padding:44px 52px 40px;width:min(600px,82%);
+       text-align:center;transform:rotate(-1.2deg);
+       font-family:'Segoe Print','Bradley Hand','Chalkboard SE','Comic Sans MS','Marker Felt',cursive;
+       background:#b3a78c;background-size:100% 100%;
+       clip-path:polygon(1% 3%,12% 0,27% 2.5%,44% .5%,63% 2%,82% 0,99% 2%,100% 20%,98.5% 38%,100% 57%,98% 76%,100% 98%,84% 100%,66% 98%,48% 100%,30% 98.5%,12% 100%,0 97%,1.5% 78%,0 58%,2% 38%,0 18%)}
+  #mt{color:#7a1212;font-size:22px;margin-bottom:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;
+      text-shadow:0 0 1px rgba(80,0,0,.7)}
+  #mq{font-size:19px;line-height:1.55;margin-bottom:16px;color:#2b2722;text-transform:uppercase;letter-spacing:1px;
+      text-shadow:0 0 1px rgba(0,0,0,.65),1px 1px 0 rgba(0,0,0,.12)}
+  #mi{width:80%;padding:9px;font-size:22px;border:0;border-bottom:3px solid #2b2722;border-radius:0;
+      background:rgba(255,255,255,.14);color:#2b2722;text-align:center;outline:none;font-family:inherit;letter-spacing:4px}
+  #fb{min-height:24px;margin:10px 0;color:#7a1212;font-weight:bold;text-transform:uppercase;letter-spacing:1px}
+  #box button{background:rgba(40,32,20,.06);color:#2b2722;border:2px solid #2b2722;border-radius:3px 8px 4px 7px;
+      box-shadow:none;font-family:inherit;text-transform:uppercase;text-shadow:0 0 1px rgba(0,0,0,.5)}
+  #box button:hover{background:#2b2722;color:#d8ccb0;box-shadow:none;text-shadow:none}
+  #box .opt b{background:transparent;color:#7a1212;border:2px solid #7a1212;text-shadow:none}
+  #box .opt.bad{opacity:.5;text-decoration:line-through;text-decoration-thickness:3px;cursor:not-allowed;background:rgba(0,0,0,.06);border-color:#7a6e55;color:#5e5543}
+  #box .opt.bad:hover{background:rgba(0,0,0,.06);color:#5e5543}
 </style>
 </head>
 <body>
@@ -900,6 +901,24 @@ function gameOver(msg){
 }
 
 // ---------- Modal ----------
+// Texture giấy nhàu cho bảng câu hỏi (nếp gấp, mảng sáng/tối, vết ố, hạt)
+(function(){
+  const w=640,h=560,c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,w,h);gr.addColorStop(0,'#c6bba1');gr.addColorStop(.5,'#b5a98e');gr.addColorStop(1,'#a69a7d');
+  g.fillStyle=gr;g.fillRect(0,0,w,h);
+  for(let i=0;i<90;i++){const x=rnd(0,w),y=rnd(0,h);
+    g.fillStyle=Math.random()<.5?'rgba(255,250,235,'+rnd(.03,.12)+')':'rgba(40,30,15,'+rnd(.03,.12)+')';
+    g.beginPath();g.moveTo(x,y);for(let k=0;k<4;k++)g.lineTo(x+rnd(-100,100),y+rnd(-100,100));g.closePath();g.fill();}
+  for(let i=0;i<26;i++){let x=rnd(0,w),y=rnd(0,h),a=rnd(0,6.3);const pts=[[x,y]];
+    for(let k=0;k<5;k++){a+=rnd(-.6,.6);x+=Math.cos(a)*rnd(30,70);y+=Math.sin(a)*rnd(30,70);pts.push([x,y]);}
+    [[0,0,'rgba(35,25,10,.30)'],[1.5,1.5,'rgba(255,250,235,.28)']].forEach(s=>{
+      g.save();g.translate(s[0],s[1]);g.strokeStyle=s[2];g.lineWidth=1.3;g.beginPath();
+      pts.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.restore();});}
+  stains(g,w,h,12,.24); noiseFx(g,w,h,30);
+  const vg=g.createRadialGradient(w/2,h/2,h*.25,w/2,h/2,w*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(50,35,10,.4)');
+  g.fillStyle=vg;g.fillRect(0,0,w,h);
+  $('box').style.backgroundImage='url('+c.toDataURL('image/jpeg',.88)+')';
+})();
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function openModal(){modalOpen=true;syncLock();$('modal').style.display='flex';$('fb').textContent='';
   if(modalMode==='code') setTimeout(()=>$('mi').focus(),30);}
