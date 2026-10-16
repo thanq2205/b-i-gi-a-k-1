@@ -1698,20 +1698,20 @@ function hit(x,z){for(const b of obstacles){if(x>b.x1-0.35&&x<b.x2+0.35&&z>b.z1-
 // ---------- Phông nền menu: khu rừng tối, lâu đài trên đồi, mưa + sấm sét ----------
 const FX=3000;                                   // đặt rừng ở rất xa phòng để không dính đèn phòng
 const forest=new THREE.Group(); forest.position.set(FX,0,0); scene.add(forest);
-const fBg=new THREE.Color(0x04070b), fFog=new THREE.FogExp2(0x04070b,0.013);
-const forestDir=new THREE.DirectionalLight(0x9db8ff,0); forestDir.position.set(FX+25,45,40); scene.add(forestDir);
+const fBg=new THREE.Color(0x0a1019), fFog=new THREE.FogExp2(0x0a1019,0.0085);
+const forestDir=new THREE.DirectionalLight(0x8fa8d8,0); forestDir.position.set(FX+25,45,40); scene.add(forestDir);
 forestDir.target.position.set(FX,12,-80); scene.add(forestDir.target);
 let castleWin=[], fBolt=null, fBoltG=null, rainPts=null, rainPos=null, lastBoltT=0, forestOn=null;
 (function buildForest(){
   const R=mulberry(777);
   const dark=c=>new THREE.MeshStandardMaterial({color:c,roughness:1,metalness:0});
   // mặt đất + con đường dẫn tới lâu đài
-  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(500,500),dark(0x070b08)); gnd.rotation.x=-Math.PI/2; forest.add(gnd);
-  const path=new THREE.Mesh(new THREE.PlaneGeometry(5,130),dark(0x16130f)); path.rotation.x=-Math.PI/2; path.position.set(0,.03,-52); forest.add(path);
+  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(500,500),dark(0x111a14)); gnd.rotation.x=-Math.PI/2; forest.add(gnd);
+  const path=new THREE.Mesh(new THREE.PlaneGeometry(5,130),dark(0x2e281f)); path.rotation.x=-Math.PI/2; path.position.set(0,.03,-52); forest.add(path);
   // đồi + lâu đài
-  const hill=new THREE.Mesh(new THREE.SphereGeometry(40,24,12,0,Math.PI*2,0,Math.PI/2),dark(0x070b08)); hill.scale.set(1.6,.45,1); hill.position.set(0,0,-105); forest.add(hill);
+  const hill=new THREE.Mesh(new THREE.SphereGeometry(40,24,12,0,Math.PI*2,0,Math.PI/2),dark(0x111a14)); hill.scale.set(1.6,.45,1); hill.position.set(0,0,-105); forest.add(hill);
   const cg=new THREE.Group(); cg.position.set(0,17,-105); forest.add(cg);
-  const stone=dark(0x1a1f27), roofM=dark(0x0b0e13);
+  const stone=dark(0x343e4f), roofM=dark(0x1a212c);
   const box=(w,h,d,x,y,z,m)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m||stone);b.position.set(x,y,z);cg.add(b);return b;};
   box(20,24,14,0,12,0); box(34,10,4,0,5,8);                              // tòa chính + tường chắn
   const tower=(x,z,r,h)=>{const t=new THREE.Mesh(new THREE.CylinderGeometry(r,r*1.08,h,12),stone);t.position.set(x,h/2,z);cg.add(t);
@@ -1723,8 +1723,8 @@ let castleWin=[], fBolt=null, fBoltG=null, rainPts=null, rainPos=null, lastBoltT
     const m=new THREE.MeshBasicMaterial({color:0xffa850}); const q=new THREE.Mesh(new THREE.PlaneGeometry(1,1.8),m);
     q.position.set(w[0],w[1],w[2]); cg.add(q); castleWin.push(m); m.userData.ph=R()*6;});
   // cây thông (InstancedMesh: thân + 3 tầng lá)
-  const N=170, trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.35,.5,6,6),dark(0x0b0806),N);
-  const cones=[0,1,2].map(i=>new THREE.InstancedMesh(new THREE.ConeGeometry(3.6-i*.9,6,7),dark(0x08110c),N));
+  const N=170, trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.35,.5,6,6),dark(0x1a130d),N);
+  const cones=[0,1,2].map(i=>new THREE.InstancedMesh(new THREE.ConeGeometry(3.6-i*.9,6,7),dark(0x12251a),N));
   const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), sc=new THREE.Vector3(), ps=new THREE.Vector3();
   for(let i=0;i<N;i++){
     let x,z; do{ x=(R()-.5)*160; z=14-R()*150; }while(Math.abs(x)<7+Math.max(0,(z+60)*0.05)&&z>-95);   // chừa đường đi giữa rừng
@@ -1760,9 +1760,9 @@ function menuForest(dt){
   if(boltT>lastBoltT+.3) forestBolt(); lastBoltT=boltT;
   fBoltG.visible=boltT>.72&&fv>.05;
   scene.background=fBg; scene.fog=fFog;
-  fBg.setRGB(.016+.3*fv,.027+.34*fv,.043+.46*fv); fFog.color.copy(fBg);
-  ambL.color.set(0x1a2433); ambL.intensity=.5+fv*1.6;
-  forestDir.intensity=fv*2.6;
+  fBg.setRGB(.04+.3*fv,.063+.34*fv,.10+.46*fv); fFog.color.copy(fBg);
+  ambL.color.set(0x4a5f82); ambL.intensity=1.25+fv*1.6;
+  forestDir.intensity=.55+fv*2.6;      // ánh trăng mờ sau mây + sét
   camera.fov=72; camera.position.set(FX+Math.sin(tt*.07)*1.2,1.7,14);
   yaw=Math.sin(tt*.05)*.1; pitch=.1;
   castleWin.forEach((m,i)=>{const v=.55+.3*Math.sin(tt*2+m.userData.ph)*Math.sin(tt*.9+i); m.color.setRGB(1*v,.66*v,.31*v);});
