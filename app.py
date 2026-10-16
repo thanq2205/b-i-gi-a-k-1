@@ -312,7 +312,7 @@ GAME_HTML = r"""
 <div id="stage"><div id="c"></div><div id="ui">
 <div id="vig"></div><canvas id="grain"></canvas><div id="lowhp"></div>
 <div id="cross"></div>
-<div id="hud"><div id="dn"></div><div id="hp"></div><div id="hn"></div><div id="ks"></div><div id="ot"></div><div id="sl"></div></div>
+<div id="hud"><div id="dn"></div><div id="hp"></div><div id="hn"></div><div id="ks"></div><div id="ot"></div></div>
 <div id="help">WASD / ←→: di chuyển · Kéo chuột: nhìn · Shift: Shift Lock · Giữ Space: chạy · E: tương tác · A/B/C/D: chọn đáp án · Esc: đóng</div>
 <button id="fs" title="Toàn màn hình">FULL</button>
 <button id="nt" title="Mở game ở tab mới (Shift Lock chuẩn như Roblox)">TAB MỚI</button>
@@ -1192,8 +1192,6 @@ function updateHud(){
   $('hn').textContent='Gợi ý: '+hints;
   $('ks').textContent='Chìa khóa: '+D.questions.map((q,i)=>solved[i]?q.digit:'_').join(' · ');
   $('ot').textContent=solved.every(Boolean)?D.order_text:'';
-  $('sl').textContent='Shift Lock: '+(shiftLock?'BẬT':'TẮT');
-  $('sl').className=shiftLock?'on':'';
   $('lockbtn').className=shiftLock?'on':''; $('lockbtn').textContent='SL';
   $('lockbtn').style.display=(state==='play'&&!touchMode)?'block':'none';
   $('lowhp').className=(hp===1&&state==='play')?'pulse':'';
@@ -1207,9 +1205,6 @@ function lockFail(){
   setCursor();
   if(!shiftLock||state!=='play'||modalOpen||gh.phase!=='idle') return;   // không đè lên cảnh báo của ma
   const now=performance.now(); if(now-lockMsgT<3500) return; lockMsgT=now;  // promise reject + pointerlockerror -> chỉ báo 1 lần
-  banner((!lockEver&&inFrame)
-    ?'Khung nhúng (Streamlit) chặn khóa chuột.\nBấm nút TAB MỚI ở góc phải trên để dùng Shift Lock đầy đủ.'
-    :'Chưa khóa được chuột. Bấm vào màn hình để khóa lại.',3600);
 }
 function lockPtr(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(lockFail);}catch(e){lockFail();}}
 function unlockPtr(){expectUnlock=true;try{document.exitPointerLock();}catch(e){}setTimeout(()=>{expectUnlock=false;},250);}
@@ -1240,7 +1235,6 @@ document.addEventListener('pointerlockchange',()=>{
   setCursor();
 });
 document.addEventListener('pointerlockerror',lockFail);
-$('sl').onclick=()=>{if(state==='play'&&!modalOpen)toggleSL();};
 
 // grain
 (function(){const gc=$('grain');gc.width=160;gc.height=90;const x=gc.getContext('2d');
@@ -1629,7 +1623,7 @@ const joyR=()=>60*stage.getBoundingClientRect().width/1280;
 function setTouch(on){
   touchMode=on; document.body.classList.toggle('touch',on);
   if(on&&shiftLock){shiftLock=false;dragging=false;syncLock();}
-  $('help').style.display=on?'none':''; $('sl').style.display=on?'none':'';
+  $('help').style.display=on?'none':'';
   $('lockbtn').style.display=(!on&&state==='play')?'block':'none'; $('tui').style.display=(on&&state==='play')?'block':'none';
   fit();
 }
@@ -1824,9 +1818,6 @@ if not load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True):
     st.warning(f"Không tìm thấy file nhạc '{MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc ở menu.")
 if not load_mp3(PLAY_MUSIC_FILE):
     st.warning(f"Không tìm thấy file nhạc '{PLAY_MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc nền khi chơi.")
-if not load_asset(THUNDER_FILE, "audio/mpeg") or not load_asset(RAIN_FILE, "audio/wav"):
-    st.info(f"Chưa thấy '{THUNDER_FILE}' hoặc '{RAIN_FILE}' cùng thư mục với app.py nên game đang dùng "
-            "tiếng sấm/mưa tổng hợp. Đặt 2 file này vào để có tiếng sấm thật và tiếng mưa.")
 components.html(_html, height=720, scrolling=False)
 st.caption("Shift Lock kiểu Roblox cần trình duyệt cho khóa chuột. Nếu không khóa được trong khung này, "
            "bấm nút TAB MỚI trong game hoặc tải bản HTML bên dưới và mở bằng trình duyệt.")
