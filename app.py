@@ -113,6 +113,10 @@ PLAY_MUSIC_FILE = "05. In The House.mp3"   # nhạc nền khi đang chơi
 
 # Âm thanh bão: sấm cắt từ file "tiengsamset.mp3" (đã xử lý) + tiếng mưa lặp liền mạch.
 # Đặt 2 file này cùng thư mục với app.py. Thiếu file thì game tự dùng âm thanh tổng hợp như cũ.
+# Tiếng bước chân: file "tiengchan.mp3" (đặt cùng thư mục với app.py). Game cắt từng bước chân theo bảng STEP_CLIPS
+# [giây bắt đầu, độ to] rồi phát lần lượt; chạy thì phát nhanh hơn + cao hơn một chút. Thiếu file -> dùng tiếng tổng hợp cũ.
+STEP_FILE = "tiengchan.mp3"
+STEP_CLIPS = [[0.357, 0.126], [1.009, 0.144], [1.609, 0.085], [2.236, 0.152], [2.852, 0.159], [3.477, 0.216], [4.102, 0.09], [4.775, 0.137], [5.373, 0.078], [6.027, 0.132], [6.624, 0.088], [7.266, 0.21], [7.871, 0.219], [8.504, 0.177], [9.101, 0.236], [9.732, 0.196], [10.365, 0.212], [11.021, 0.115], [11.64, 0.086], [12.267, 0.153], [12.883, 0.157], [13.508, 0.215], [14.133, 0.089], [14.806, 0.137], [15.404, 0.078], [16.058, 0.132], [16.655, 0.142], [17.322, 0.126], [17.959, 0.136], [18.628, 0.115], [19.278, 0.116], [19.922, 0.21], [20.53, 0.253], [21.179, 0.152], [21.823, 0.087], [22.482, 0.154], [23.096, 0.083], [23.784, 0.121], [25.072, 0.092], [25.708, 0.107], [26.407, 0.112]]
 THUNDER_FILE = "thunder_fx.mp3"
 RAIN_FILE = "rain_loop.wav"
 # Bảng cắt của THUNDER_FILE: s = giây bắt đầu clip trong file, d = độ dài, c = thời điểm TIẾNG NỔ trong clip
@@ -1109,7 +1113,24 @@ function ambience(){
     const wg=a.createGain();wg.gain.value=.022;s.connect(bp);bp.connect(wg);wg.connect(a.destination);s.start();
     const od=a.createOscillator(),dl=a.createBiquadFilter();droneG=a.createGain();droneG.gain.value=0;od.type='sawtooth';od.frequency.value=62;
     dl.type='lowpass';dl.frequency.value=260;od.connect(dl);dl.connect(droneG);droneG.connect(a.destination);od.start();
-    stormAudioLoad(a);
+    stormAudioLoad(a); stepAudioLoad(a);
+  }catch(e){}
+}
+// ---------- Bước chân thật (cắt từ tiengchan.mp3); chạy -> nhanh hơn + cao giọng hơn ----------
+const STEP_SRC="__STEP__", SCLIPS=__SCLIPS__, STEP_REF=.3, STEP_VOL=1.0;   // SCLIPS: [giây bắt đầu, độ to]
+let stBuf=null, stepLoading=false, lastStep=-1;
+function stepAudioLoad(a){ if(!STEP_SRC||stBuf||stepLoading) return; stepLoading=true; decodeBuf(a,STEP_SRC).then(b=>{stBuf=b;}).catch(()=>{}); }
+function footstep(run){
+  if(!stBuf){ noise(.07,.08); tone(70,.09,'sine',.1,40); return; }   // chưa có file -> tiếng tổng hợp cũ
+  try{
+    const a=ac(); let i; do{ i=Math.floor(Math.random()*SCLIPS.length); }while(i===lastStep&&SCLIPS.length>1); lastStep=i;
+    const c=SCLIPS[i], iv=run?.32:.5, rate=(run?1.18:1)*(1+(Math.random()-.5)*.06);
+    const dur=Math.min(.5,iv*1.4*rate), wall=dur/rate, t=a.currentTime;
+    const v=Math.max(.5,Math.min(2.5,STEP_REF/c[1]))*STEP_VOL*(run?1.1:1);   // cân lại độ to cho các bước đều nhau
+    const g=a.createGain(), s=a.createBufferSource(); s.buffer=stBuf; s.playbackRate.value=rate;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(v,t+.004);
+    g.gain.setValueAtTime(v,t+Math.max(.01,wall-.08)); g.gain.linearRampToValueAtTime(0,t+wall);
+    s.connect(g).connect(a.destination); s.start(t,Math.max(0,c[0]-.01),dur);
   }catch(e){}
 }
 /*STORM-AUDIO-BEGIN*/
@@ -1713,7 +1734,7 @@ function update(dt){
       if(!hit(camera.position.x+dx,camera.position.z)) camera.position.x+=dx;
       if(!hit(camera.position.x,camera.position.z+dzz)) camera.position.z+=dzz;
       bob+=dt*(run?12:9);
-      stepT-=dt; if(stepT<=0){noise(.07,.08);tone(70,.09,'sine',.1,40);stepT=run?.32:.5;}
+      stepT-=dt; if(stepT<=0){footstep(run);stepT=run?.32:.5;}
     }
     const zmin=doorOpen?-RD/2-1.5:-RD/2+0.7;
     camera.position.x=Math.max(-RW/2+0.5,Math.min(RW/2-0.5,camera.position.x));
@@ -1824,6 +1845,8 @@ iframe[title="streamlit.components.v1.html"]{
 _html = (GAME_HTML.replace("__DATA__", build_data())
          .replace("__MUSIC__", load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True))
          .replace("__MUSIC2__", load_mp3(PLAY_MUSIC_FILE))
+         .replace("__STEP__", load_mp3(STEP_FILE))
+         .replace("__SCLIPS__", json.dumps(STEP_CLIPS))
          .replace("__THUNDER__", load_asset(THUNDER_FILE, "audio/mpeg"))
          .replace("__RAIN__", load_asset(RAIN_FILE, "audio/wav"))
          .replace("__TCLIPS__", json.dumps(THUNDER_CLIPS)))
