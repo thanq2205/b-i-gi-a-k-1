@@ -474,7 +474,8 @@ fit();
 
 // Đèn pin
 const spot=new THREE.SpotLight(0xfff0cc,2.1,24,Math.PI/5.2,0.5,1.1);
-camera.add(spot); spot.position.set(0.2,-0.1,0); camera.add(spot.target); spot.target.position.set(0,0,-3);
+spot.position.set(0.2,-0.1,0);   // đèn pin đã bỏ: spot không gắn vào camera/scene nên không chiếu sáng
+ camera.add(spot.target); spot.target.position.set(0,0,-3);
 spot.shadow.mapSize.set(1024,1024); spot.shadow.camera.near=0.2; spot.shadow.camera.far=24; spot.shadow.bias=-0.0006;
 const ambL=new THREE.AmbientLight(0x4a3a34,0.85); scene.add(ambL);
 // Các đèn cố định (tạo một lần để tránh biên dịch lại shader)
@@ -1174,7 +1175,7 @@ function thunderBus(a){
 // delay = số giây từ lúc tia chớp tới lúc tiếng NỔ vang lên. Lên lịch bằng đồng hồ âm thanh nên tiếng nổ rơi đúng mốc.
 // Trả về false nếu chưa có file (khi đó dùng tiếng tổng hợp cũ).
 function thunderPlay(delay,near){
-  if(!thBuf||!amb||!(state==='play'||state==='scare')) return false;
+  if(!thBuf||!(state==='play'||state==='scare'||state==='menu')) return false;
   try{
     const a=ac(); if(a.state==='suspended'&&a.resume) a.resume();
     // gần: clip nổ gắt. xa: ưu tiên clip sấm cuộn, thỉnh thoảng dùng clip nổ nhưng làm mờ
@@ -1438,6 +1439,7 @@ function playMusicStop(){ pbgm.pause(); try{pbgm.currentTime=0;}catch(e){} }
 $('vr').oninput=()=>{musicVol=+$('vr').value/100;$('vv').textContent=$('vr').value+'%';saveNum('doors_vol',$('vr').value);
   if(!bgm.paused){clearInterval(fadeI);bgm.volume=musicVol;}};
 ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{if(state==='menu'&&bgm.paused)musicStart();},true));
+['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{try{const a=ac(); if(a.resume)a.resume(); stormAudioLoad(a);}catch(e){}},{capture:true,once:true}));   // nạp tiếng sấm cho menu
 function nextRoom(){
   transitioning=true; $('fade').style.opacity=1;
   setTimeout(()=>{
@@ -1692,14 +1694,95 @@ setTouch(touchMode);
 
 function hit(x,z){for(const b of obstacles){if(x>b.x1-0.35&&x<b.x2+0.35&&z>b.z1-0.35&&z<b.z2+0.35)return true;}return false;}
 
+
+// ---------- Phông nền menu: khu rừng tối, lâu đài trên đồi, mưa + sấm sét ----------
+const FX=3000;                                   // đặt rừng ở rất xa phòng để không dính đèn phòng
+const forest=new THREE.Group(); forest.position.set(FX,0,0); scene.add(forest);
+const fBg=new THREE.Color(0x04070b), fFog=new THREE.FogExp2(0x04070b,0.013);
+const forestDir=new THREE.DirectionalLight(0x9db8ff,0); forestDir.position.set(FX+25,45,40); scene.add(forestDir);
+forestDir.target.position.set(FX,12,-80); scene.add(forestDir.target);
+let castleWin=[], fBolt=null, fBoltG=null, rainPts=null, rainPos=null, lastBoltT=0, forestOn=null;
+(function buildForest(){
+  const R=mulberry(777);
+  const dark=c=>new THREE.MeshStandardMaterial({color:c,roughness:1,metalness:0});
+  // mặt đất + con đường dẫn tới lâu đài
+  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(500,500),dark(0x070b08)); gnd.rotation.x=-Math.PI/2; forest.add(gnd);
+  const path=new THREE.Mesh(new THREE.PlaneGeometry(5,130),dark(0x16130f)); path.rotation.x=-Math.PI/2; path.position.set(0,.03,-52); forest.add(path);
+  // đồi + lâu đài
+  const hill=new THREE.Mesh(new THREE.SphereGeometry(40,24,12,0,Math.PI*2,0,Math.PI/2),dark(0x070b08)); hill.scale.set(1.6,.45,1); hill.position.set(0,0,-105); forest.add(hill);
+  const cg=new THREE.Group(); cg.position.set(0,17,-105); forest.add(cg);
+  const stone=dark(0x1a1f27), roofM=dark(0x0b0e13);
+  const box=(w,h,d,x,y,z,m)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m||stone);b.position.set(x,y,z);cg.add(b);return b;};
+  box(20,24,14,0,12,0); box(34,10,4,0,5,8);                              // tòa chính + tường chắn
+  const tower=(x,z,r,h)=>{const t=new THREE.Mesh(new THREE.CylinderGeometry(r,r*1.08,h,12),stone);t.position.set(x,h/2,z);cg.add(t);
+    const c=new THREE.Mesh(new THREE.ConeGeometry(r*1.35,h*.45,12),roofM);c.position.set(x,h+h*.22,z);cg.add(c);};
+  tower(-12,0,3.2,34); tower(12,0,3.2,30); tower(-17,8,2.4,20); tower(17,8,2.4,22); tower(0,-2,3.8,40);
+  for(let i=-8;i<=8;i+=2) box(1.2,1.6,1.2,i*1.8,10.8,9.8);               // răng cưa trên tường
+  // cửa sổ hắt ánh vàng (nhấp nháy rất nhẹ)
+  [[-4,16,7.1],[4,16,7.1],[0,26,7.1],[-12,24,3.3],[12,21,3.3],[0,34,1.9],[-8,6,10.1],[8,6,10.1]].forEach(w=>{
+    const m=new THREE.MeshBasicMaterial({color:0xffa850}); const q=new THREE.Mesh(new THREE.PlaneGeometry(1,1.8),m);
+    q.position.set(w[0],w[1],w[2]); cg.add(q); castleWin.push(m); m.userData.ph=R()*6;});
+  // cây thông (InstancedMesh: thân + 3 tầng lá)
+  const N=170, trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.35,.5,6,6),dark(0x0b0806),N);
+  const cones=[0,1,2].map(i=>new THREE.InstancedMesh(new THREE.ConeGeometry(3.6-i*.9,6,7),dark(0x08110c),N));
+  const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), sc=new THREE.Vector3(), ps=new THREE.Vector3();
+  for(let i=0;i<N;i++){
+    let x,z; do{ x=(R()-.5)*160; z=14-R()*150; }while(Math.abs(x)<7+Math.max(0,(z+60)*0.05)&&z>-95);   // chừa đường đi giữa rừng
+    const k=.8+R()*1.1; sc.set(k,k*(.9+R()*.5),k); q.setFromEuler(new THREE.Euler(0,R()*6,0));
+    ps.set(x,3*sc.y,z); m4.compose(ps,q,sc); trunk.setMatrixAt(i,m4);
+    cones.forEach((c,j)=>{ps.set(x,(6+j*3.2)*sc.y,z);m4.compose(ps,q,sc);c.setMatrixAt(i,m4);});
+  }
+  forest.add(trunk); cones.forEach(c=>forest.add(c));
+  // tia sét (vẽ bằng đường gấp khúc, không bị sương mù che)
+  fBoltG=new THREE.Group(); fBoltG.visible=false; forest.add(fBoltG);
+  // mưa
+  const RN=700; rainPos=new Float32Array(RN*3);
+  for(let i=0;i<RN;i++){rainPos[i*3]=(R()-.5)*50;rainPos[i*3+1]=R()*28;rainPos[i*3+2]=-35+R()*50;}
+  const rg=new THREE.BufferGeometry(); rg.setAttribute('position',new THREE.BufferAttribute(rainPos,3));
+  rainPts=new THREE.Points(rg,new THREE.PointsMaterial({color:0x8fa0b8,size:.07,transparent:true,opacity:.5,depthWrite:false}));
+  rainPts.frustumCulled=false; forest.add(rainPts);
+  forest.visible=false;
+})();
+function forestBolt(){        // dựng tia sét mới ở phía xa, ngay phía trên lâu đài / rừng
+  while(fBoltG.children.length){const c=fBoltG.children.pop();c.geometry.dispose();c.material.dispose();}
+  const bx=(Math.random()-.5)*90, bz=-70-Math.random()*40;
+  const mk=(x0,y0,y1,off)=>{const pts=[];let x=x0,y=y0;pts.push(new THREE.Vector3(x+off,y,bz));
+    while(y>y1){x+=(Math.random()-.5)*7;y-=5+Math.random()*7;pts.push(new THREE.Vector3(x+off,Math.max(y,y1),bz));}
+    return pts;};
+  const main=mk(bx,110,2,0);
+  [0,.18,-.18].forEach(o=>{const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(main.map(v=>new THREE.Vector3(v.x+o,v.y,v.z))),
+    new THREE.LineBasicMaterial({color:0xdfe8ff,fog:false})); fBoltG.add(l);});
+  const bi=Math.floor(main.length*.45), br=mk(main[bi].x,main[bi].y,main[bi].y-35,0);
+  fBoltG.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(br),new THREE.LineBasicMaterial({color:0xbcd0ff,fog:false})));
+}
+function menuForest(dt){
+  const fv=flashV;                                                   // dùng chung nhịp sét với hệ thống bão
+  if(boltT>lastBoltT+.3) forestBolt(); lastBoltT=boltT;
+  fBoltG.visible=boltT>.72&&fv>.05;
+  scene.background=fBg; scene.fog=fFog;
+  fBg.setRGB(.016+.3*fv,.027+.34*fv,.043+.46*fv); fFog.color.copy(fBg);
+  ambL.color.set(0x1a2433); ambL.intensity=.5+fv*1.6;
+  forestDir.intensity=fv*2.6;
+  camera.fov=72; camera.position.set(FX+Math.sin(tt*.07)*1.2,1.7,14);
+  yaw=Math.sin(tt*.05)*.1; pitch=.1;
+  castleWin.forEach((m,i)=>{const v=.55+.3*Math.sin(tt*2+m.userData.ph)*Math.sin(tt*.9+i); m.color.setRGB(1*v,.66*v,.31*v);});
+  for(let i=0;i<rainPos.length;i+=3){rainPos[i+1]-=26*dt; rainPos[i]-=3*dt; if(rainPos[i+1]<0){rainPos[i+1]=28;rainPos[i]=(Math.random()-.5)*50;}}
+  rainPts.geometry.attributes.position.needsUpdate=true;
+  $('hud').style.display='none';
+}
 function update(dt){
   tt+=dt;
   stormUpdate(dt); pulseClues(); rainUpdate();
+  const inMenu=(state==='menu');
+  if(room) room.visible=!inMenu; forest.visible=inMenu;
+  if(inMenu){ menuForest(dt); stormL.intensity=0; }
+  else if(forestOn!==false){ scene.background=new THREE.Color(0x030101); scene.fog=new THREE.FogExp2(0x050202,0.04+door*0.004); ambL.color.set(0x4a3a34); forestDir.intensity=0; $('hud').style.display=''; }
+  forestOn=inMenu;
   if(PLAY_SRC&&!pbgm.paused){pduck+=((gh.phase!=='idle'&&state==='play'?.3:1)-pduck)*Math.min(1,dt*2);pbgm.volume=Math.max(0,Math.min(1,musicVol*.8*pduck));}
   for(let i=0;i<DUST;i++){dustPos[i*3+1]+=Math.sin(tt*.6+i)*0.0009+0.0006;dustPos[i*3]+=Math.cos(tt*.4+i*1.7)*0.0007;
     if(dustPos[i*3+1]>RH)dustPos[i*3+1]=0;}
   dustGeo.attributes.position.needsUpdate=true;
-  sconceL.forEach((l,i)=>l.intensity=(0.85+0.25*Math.sin(tt*13+i*2.1)*Math.sin(tt*5.3+i))*lampF);
+  sconceL.forEach((l,i)=>l.intensity=(0.6+0.18*Math.sin(tt*13+i*2.1)*Math.sin(tt*5.3+i))*lampF);
   if(fireMat) fireMat.opacity=.7+.2*Math.sin(tt*17)*Math.sin(tt*7.3);
   animGhost(dt);
   if(state==='scare'){ updScare(dt); return; }
@@ -1786,8 +1869,8 @@ function update(dt){
   if(RF) lampF=gh.phase==='warn'?.35+.25*Math.sin(tt*2.5):(ghostOn?.12:(flickT>0?.5:1));   // chế độ giảm chớp: đèn mờ/sáng chậm, không nhấp nháy
   // Sét đánh: đèn điện trong phòng tắt phụt đúng 1 nhịp lúc tia chớp rồi sáng lại (giảm chớp: chỉ mờ đi nhẹ)
   if(boltT>0&&(1-boltT)<.22) lampF=Math.min(lampF,RF?.45:.04);
-  ambL.intensity=.85*(1-dark*.7)+flashV*1.2;
-  lamp.intensity=1.1*lampF; lampB.intensity=.9*lampF;
+  ambL.intensity=.6*(1-dark*.7)+flashV*1.2;
+  lamp.intensity=.8*lampF; lampB.intensity=.65*lampF;
   if(flameMat){const v=Math.max(.15,lampF);flameMat.color.setRGB(v,.85*v,.63*v);}
   if(!hidden) spot.intensity=2.1*(0.93+0.07*Math.sin(tt*23))*(lampF<.5?0.5:1);
 
