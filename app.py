@@ -1341,13 +1341,20 @@ $('start').onclick=()=>{
   }
   resetGame();
 };
-// Tab mới do trang Streamlit mở ra: vừa mở xong là đóng luôn tab cũ (không cho đóng thì làm trống tab cũ).
+// Tab mới do trang Streamlit mở ra: biến luôn tab cũ thành game (không còn tab thừa), rồi tự đóng tab mới này.
+// Nếu trình duyệt không cho thì giữ tab mới, tab cũ để nguyên (không làm trống).
 if(!inFrame&&location.hash==='#fromframe'&&window.opener){
   try{
-    const t=window.opener.top; t.close();
-    setTimeout(()=>{try{if(!t.closed)t.location.replace('about:blank');}catch(e){}},300);
+    const top0=window.opener.top;
+    top0.location.href=URL.createObjectURL(new Blob([SRC],{type:'text/html'}))+'#takeover';
+    let n=0; const iv=setInterval(()=>{
+      n++; let ok=false;
+      try{ ok=top0.location.href.indexOf('#takeover')>0&&top0.document.readyState==='complete'&&!!top0.document.getElementById('start'); }catch(e){}
+      if(ok){ clearInterval(iv); setTimeout(()=>{try{window.close();}catch(e){}},400); }
+      else if(n>40) clearInterval(iv);    // ~6s không được -> thôi, giữ nguyên cả hai tab
+    },150);
   }catch(e){}
-} $('retry').onclick=resetGame; $('again').onclick=resetGame;
+}
 function setRF(v){RF=!!v; saveNum('doors_rf',RF?1:0); $('rfchk').checked=RF; $('rfchk2').checked=RF;}
 $('rfchk').onchange=()=>setRF($('rfchk').checked); $('rfchk2').onchange=()=>setRF($('rfchk2').checked); setRF(RF);
 $('warnok').onclick=()=>{$('warn').style.display='none';};
