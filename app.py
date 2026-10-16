@@ -1213,10 +1213,13 @@ function lockFail(){
 }
 function lockPtr(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(lockFail);}catch(e){lockFail();}}
 function unlockPtr(){expectUnlock=true;try{document.exitPointerLock();}catch(e){}setTimeout(()=>{expectUnlock=false;},250);}
+// Chế độ "khóa giả": trình duyệt/khung nhúng chặn khóa chuột thật -> xoay camera bằng vị trí chuột
+const fakeLock=()=>shiftLock&&!isLocked()&&lockBlocked;
 function setCursor(){
   const want=shiftLock&&state==='play'&&!modalOpen;
-  canvas.style.cursor=want?'none':'default';       // Shift Lock: luôn ẩn con trỏ
-  $('cross').className=(shiftLock&&state==='play')?'lk':'';
+  const hide=want&&(isLocked()||lockBlocked);       // chỉ ẩn con trỏ khi đã khóa thật (hoặc khóa giả); lỡ nhả chuột (Esc) thì hiện lại để bấm khóa
+  canvas.style.cursor=hide?'none':'default';
+  $('cross').className=hide?'lk':'';
 }
 function syncLock(){
   const want=shiftLock&&state==='play'&&!modalOpen;
@@ -1226,7 +1229,7 @@ function syncLock(){
   if(state!=='menu') updateHud();
 }
 function toggleSL(){
-  shiftLock=!shiftLock; lockFailShown=false; lockMsgT=0;
+  shiftLock=!shiftLock; lockFailShown=false; lockMsgT=0; dragging=false;
   banner(shiftLock?'Shift Lock: BẬT — chuột khóa ở giữa màn hình':'Shift Lock: TẮT — giữ chuột trái/phải và kéo để nhìn',1800);
   syncLock(); updateHud();
 }
@@ -1586,7 +1589,7 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>{keys[e.code]=false;});
 canvas.addEventListener('mousedown',()=>{
-  dragging=!shiftLock;                      // Roblox: không Shift Lock thì giữ chuột (trái/phải) để xoay
+  dragging=!shiftLock&&state==='play'&&!modalOpen;   // Roblox: không Shift Lock thì giữ chuột (trái/phải) để xoay
   if(shiftLock&&state==='play'&&!modalOpen&&!isLocked()) lockPtr();
 });
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
@@ -1594,15 +1597,15 @@ addEventListener('mouseup',()=>dragging=false);
 document.documentElement.addEventListener('mouseleave',()=>{mouseIn=false;});
 document.addEventListener('mouseleave',()=>{mouseIn=false;});
 document.addEventListener('mouseout',e=>{if(!e.relatedTarget)mouseIn=false;});   // con trỏ rời khung/iframe -> ngừng xoay
-addEventListener('blur',()=>{mouseIn=false;keys={};});                           // mất focus (bấm ra ngoài iframe) -> ngừng xoay
-document.addEventListener('visibilitychange',()=>{mouseIn=false;keys={};});
+addEventListener('blur',()=>{mouseIn=false;dragging=false;keys={};});                           // mất focus (bấm ra ngoài iframe) -> ngừng xoay
+document.addEventListener('visibilitychange',()=>{mouseIn=false;dragging=false;keys={};});
 addEventListener('mousemove',e=>{
   const r=stage.getBoundingClientRect();
   mouseX=(e.clientX-r.left)/r.width*2-1; mouseY=(e.clientY-r.top)/r.height*2-1;
   mouseIn=Math.abs(mouseX)<=1&&Math.abs(mouseY)<=1;
   if(state!=='play'||modalOpen||gh.phase==='reveal') return;   // đoạn phim: không xoay được camera
   // Vuốt sang phải -> quay phải, sang trái -> quay trái (cả khi khóa chuột thật lẫn khi bị trình duyệt chặn)
-  if(isLocked()||dragging||shiftLock){
+  if(isLocked()||dragging||fakeLock()){
     if(Math.abs(e.movementX)>250||Math.abs(e.movementY)>250) return;   // Chrome đôi khi báo delta khổng lồ lúc vừa khóa chuột
     yaw-=e.movementX*0.0025; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*0.0025));
   }
@@ -1625,6 +1628,7 @@ const toUI=(cx,cy)=>{const r=stage.getBoundingClientRect(),k=1280/r.width;return
 const joyR=()=>60*stage.getBoundingClientRect().width/1280;
 function setTouch(on){
   touchMode=on; document.body.classList.toggle('touch',on);
+  if(on&&shiftLock){shiftLock=false;dragging=false;syncLock();}
   $('help').style.display=on?'none':''; $('sl').style.display=on?'none':'';
   $('lockbtn').style.display=(!on&&state==='play')?'block':'none'; $('tui').style.display=(on&&state==='play')?'block':'none';
   fit();
@@ -1686,7 +1690,7 @@ function update(dt){
   if(!modalOpen){ if(keys.ArrowLeft) yaw+=1.8*dt; if(keys.ArrowRight) yaw-=1.8*dt; }
   // Shift Lock dự phòng (không khóa được chuột): xoay camera theo vị trí chuột so với tâm khung
   // (khi không khóa được chuột, con trỏ ẩn nhưng vẫn chạm mép màn hình -> chạm mép thì tiếp tục xoay về phía đó)
-  if(!modalOpen&&shiftLock&&!isLocked()&&mouseIn&&!dragging){
+  if(!modalOpen&&fakeLock()&&mouseIn&&!dragging){
     const eb=.94, f=v=>Math.abs(v)>eb?Math.sign(v)*(Math.abs(v)-eb)/(1-eb):0;
     yaw-=f(mouseX)*2.6*dt; pitch=Math.max(-1.3,Math.min(1.3,pitch-f(mouseY)*1.6*dt));
   }
