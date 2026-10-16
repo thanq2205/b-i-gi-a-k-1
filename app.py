@@ -1696,12 +1696,6 @@ function update(dt){
   if(state!=='play') return;
   if(modalOpen&&joyId!==null) stopJoy();
   if(!modalOpen){ if(keys.ArrowLeft) yaw+=1.8*dt; if(keys.ArrowRight) yaw-=1.8*dt; }
-  // Shift Lock dự phòng (không khóa được chuột): xoay camera theo vị trí chuột so với tâm khung
-  // (khi không khóa được chuột, con trỏ ẩn nhưng vẫn chạm mép màn hình -> chạm mép thì tiếp tục xoay về phía đó)
-  if(!modalOpen&&fakeLock()&&mouseIn&&!dragging){
-    const eb=.94, f=v=>Math.abs(v)>eb?Math.sign(v)*(Math.abs(v)-eb)/(1-eb):0;
-    yaw-=f(mouseX)*2.6*dt; pitch=Math.max(-1.3,Math.min(1.3,pitch-f(mouseY)*1.6*dt));
-  }
   let moving=false;
   if(!modalOpen&&!hidden&&!transitioning&&gh.phase!=='reveal'){
     let f=0,s=0;
