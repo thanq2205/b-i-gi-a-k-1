@@ -204,6 +204,8 @@ GAME_HTML = r"""
   .ov,#modal,#sl,#fs,button,input{pointer-events:auto}
   #fs{position:absolute;top:8px;right:10px;z-index:30;padding:5px 10px;font-size:13px;margin:0;opacity:.75}
   #fs:hover{opacity:1}
+  #nt{position:absolute;top:8px;right:76px;z-index:30;padding:5px 10px;font-size:13px;margin:0;opacity:.75;display:none}
+  #nt:hover{opacity:1}
   #lockbtn{position:absolute;right:16px;bottom:16px;z-index:7;width:56px;height:56px;padding:0;margin:0;border-radius:50%;
            font-size:18px;font-weight:bold;background:rgba(0,0,0,.55);border:2px solid #9a2a2a;display:none}
   #lockbtn.on{background:rgba(120,90,10,.75);border-color:#ffd86b;box-shadow:0 0 14px #a80}
@@ -301,7 +303,7 @@ GAME_HTML = r"""
   #joyB,#joyK{position:absolute;border-radius:50%;display:none;pointer-events:none;z-index:7}
   #joyB{width:150px;height:150px;margin:-75px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.06)}
   #joyK{width:64px;height:64px;margin:-32px;background:rgba(255,255,255,.3);border:2px solid rgba(255,255,255,.55)}
-  .touch #fs{padding:10px 16px;font-size:18px}
+  .touch #fs,.touch #nt{padding:10px 16px;font-size:18px} .touch #nt{right:112px}
   #rot{position:fixed;inset:0;z-index:99;background:#000;color:#d9b45a;display:none;align-items:center;justify-content:center;
        text-align:center;padding:20px;font-size:22px;letter-spacing:2px}
 </style>
@@ -313,6 +315,7 @@ GAME_HTML = r"""
 <div id="hud"><div id="dn"></div><div id="hp"></div><div id="hn"></div><div id="ks"></div><div id="ot"></div></div>
 <div id="help">WASD / ←→: di chuyển · Kéo chuột: nhìn · Shift: Shift Lock · Giữ Space: chạy · E: tương tác · A/B/C/D: chọn đáp án · Esc: đóng</div>
 <button id="fs" title="Toàn màn hình">FULL</button>
+<button id="nt" title="Mở game ở tab mới (Shift Lock chuẩn như Roblox)">TAB MỚI</button>
 <button id="lockbtn" title="Shift Lock (phím Shift)">SL</button>
 <div id="tui"><div id="joyB"></div><div id="joyK"></div><div id="tE" class="tb">E</div><div id="tRun" class="tb">CHẠY</div></div>
 <div id="prompt"></div>
@@ -367,6 +370,7 @@ GAME_HTML = r"""
       <li><b>Kéo chuột</b>: nhìn xung quanh</li>
       <li><kbd>Shift</kbd> hoặc nút SL góc phải dưới: bật / tắt <b>Shift Lock</b> giống Roblox — chuột bị khóa ở giữa màn hình, hiện tâm ngắm, xoay camera mà không cần bấm chuột. Lỡ nhả chuột (Esc) thì bấm vào màn hình để khóa lại</li>
       <li>Khi tắt Shift Lock: giữ chuột trái hoặc phải rồi kéo để nhìn</li>
+      <li>Nếu chạy trong Streamlit mà không khóa được chuột (trình duyệt chặn), bấm nút <kbd>TAB MỚI</kbd> góc phải trên để mở game ở tab mới</li>
       <li><kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> hoặc bấm chuột: chọn đáp án khi trả lời câu hỏi</li>
       <li>Giữ <kbd>Space</kbd>: chạy</li>
       <li><b>Điện thoại</b> (nên xoay ngang): cần gạt bên trái màn hình để đi, vuốt bên phải để nhìn, nút <kbd>E</kbd> để tương tác, giữ nút <kbd>CHẠY</kbd> để chạy</li>
@@ -425,6 +429,7 @@ const MAX_HP=3, HINTS0=5, RH=4;
 const SIZES=[[18,26],[20,28],[22,30],[22,32],[24,34]];
 let RW=18, RD=26;
 const $=id=>document.getElementById(id);
+const SRC='<!DOCTYPE html>\n'+document.documentElement.outerHTML;   // bản sao trang để mở ở tab mới
 function loadNum(k,d,lo,hi){try{const v=parseInt(localStorage.getItem(k));return(v>=lo&&v<=hi)?v:d;}catch(e){return d;}}
 function saveNum(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 const COARSE=!!(window.matchMedia&&matchMedia('(pointer:coarse)').matches);   // điện thoại / máy tính bảng
@@ -1192,38 +1197,21 @@ function updateHud(){
   $('lowhp').className=(hp===1&&state==='play')?'pulse':'';
 }
 // Shift Lock kiểu Roblox: chuột bị khóa ở GIỮA màn hình (con trỏ ẩn, hiện tâm ngắm), xoay camera không cần bấm chuột.
-// Bấm Shift (hoặc nút SL) để bật/tắt.
+// Bấm Shift (hoặc nút ) để bật/tắt. Nếu trình duyệt chặn khóa chuột trong khung nhúng -> dùng nút TAB MỚI mở game ở tab mới.
 const inFrame=(function(){try{return window.top!==window;}catch(e){return true;}})();
-// Khung Streamlit (iframe sandbox) chặn khóa chuột trên canvas -> thử khóa chính thẻ iframe ở trang cha (cùng origin), bắt mousemove ở trang cha.
-const pdoc=(function(){try{const d=window.parent.document;return(d&&d!==document)?d:null;}catch(e){return null;}})();
-const pEl=(function(){try{return window.frameElement||null;}catch(e){return null;}})();
-const isLockedOwn=()=>document.pointerLockElement===canvas;
-const isLockedParent=()=>!!(pdoc&&pEl&&pdoc.pointerLockElement===pEl);
-const isLocked=()=>isLockedOwn()||isLockedParent();
-let lockStep=0, curFail=null;
+const isLocked=()=>document.pointerLockElement===canvas;
 function lockFail(){
-  if(!lockEver) lockBlocked=true;        // chưa từng khóa được -> dùng khóa giả (xoay theo vị trí chuột)
+  if(!lockEver) lockBlocked=true;        // chưa từng khóa được -> khung nhúng bị chặn
   setCursor();
   if(!shiftLock||state!=='play'||modalOpen||gh.phase!=='idle') return;   // không đè lên cảnh báo của ma
-  const now=performance.now(); if(now-lockMsgT<3500) return; lockMsgT=now;
-  if(lockEver) banner('Chưa khóa được chuột. Bấm vào màn hình để khóa lại.',2400);
+  const now=performance.now(); if(now-lockMsgT<3500) return; lockMsgT=now;  // promise reject + pointerlockerror -> chỉ báo 1 lần
 }
-function reqLock(el,next){
-  let done=false; const f=()=>{if(done)return;done=true;if(curFail===f)curFail=null;next();}; curFail=f;
-  try{const p=el.requestPointerLock();if(p&&p.catch)p.catch(f);}catch(e){f();}
-}
-function tryLock(){
-  if(lockStep===0){lockStep=1;reqLock(canvas,tryLock);}
-  else if(lockStep===1&&pdoc&&pEl){lockStep=2;reqLock(pEl,tryLock);}
-  else lockFail();
-}
-function lockPtr(){lockStep=0;curFail=null;tryLock();}
-function unlockPtr(){expectUnlock=true;try{document.exitPointerLock();}catch(e){}try{if(isLockedParent())pdoc.exitPointerLock();}catch(e){}setTimeout(()=>{expectUnlock=false;},250);}
-// Chế độ "khóa giả": trình duyệt/khung nhúng chặn khóa chuột thật -> xoay camera bằng vị trí chuột
+function lockPtr(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(lockFail);}catch(e){lockFail();}}
+function unlockPtr(){expectUnlock=true;try{document.exitPointerLock();}catch(e){}setTimeout(()=>{expectUnlock=false;},250);}
 const fakeLock=()=>shiftLock&&!isLocked()&&lockBlocked;
 function setCursor(){
   const want=shiftLock&&state==='play'&&!modalOpen;
-  const hide=want&&(isLocked()||lockBlocked);       // chỉ ẩn con trỏ khi đã khóa thật (hoặc khóa giả); lỡ nhả chuột (Esc) thì hiện lại để bấm khóa
+  const hide=want&&(isLocked()||lockBlocked);
   canvas.style.cursor=hide?'none':'default';
   $('cross').className=hide?'lk':'';
 }
@@ -1240,18 +1228,12 @@ function toggleSL(){
   syncLock(); updateHud();
 }
 document.addEventListener('pointerlockchange',()=>{
-  if(isLocked()){lockEver=true;lockBlocked=false;curFail=null;}
+  if(isLocked()){lockEver=true;lockBlocked=false;}
   else if(shiftLock&&!expectUnlock&&state==='play'&&!modalOpen){   // lỡ nhả chuột (Esc): giữ Shift Lock BẬT như Roblox
     banner('Chuột đã nhả. Bấm vào màn hình để khóa lại (Shift để tắt Shift Lock).',2600);}
   setCursor();
 });
-const onLockErr=()=>{if(curFail)curFail();else lockFail();};
-document.addEventListener('pointerlockerror',onLockErr);
-if(pdoc){
-  pdoc.addEventListener('pointerlockchange',()=>document.dispatchEvent(new Event('pointerlockchange')));
-  pdoc.addEventListener('pointerlockerror',onLockErr);
-  pdoc.addEventListener('mousemove',e=>{ if(isLockedParent()) lookMove(e.movementX,e.movementY); });
-}
+document.addEventListener('pointerlockerror',lockFail);
 
 // grain
 (function(){const gc=$('grain');gc.width=160;gc.height=90;const x=gc.getContext('2d');
@@ -1600,7 +1582,7 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>{keys[e.code]=false;});
 canvas.addEventListener('mousedown',()=>{
-  dragging=!shiftLock&&state==='play'&&!modalOpen;   // Roblox: không Shift Lock thì giữ chuột (trái/phải) để xoay
+  dragging=!shiftLock&&state==='play'&&!modalOpen;
   if(shiftLock&&state==='play'&&!modalOpen&&!isLocked()) lockPtr();
 });
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
@@ -1616,17 +1598,20 @@ addEventListener('mousemove',e=>{
   mouseIn=Math.abs(mouseX)<=1&&Math.abs(mouseY)<=1;
   if(state!=='play'||modalOpen||gh.phase==='reveal') return;   // đoạn phim: không xoay được camera
   // Vuốt sang phải -> quay phải, sang trái -> quay trái (cả khi khóa chuột thật lẫn khi bị trình duyệt chặn)
-  if(isLockedOwn()||dragging||fakeLock()) lookMove(e.movementX,e.movementY);
+  if(isLocked()||dragging||fakeLock()){
+    if(Math.abs(e.movementX)>250||Math.abs(e.movementY)>250) return;   // Chrome đôi khi báo delta khổng lồ lúc vừa khóa chuột
+    yaw-=e.movementX*0.0025; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*0.0025));
+  }
 });
-function lookMove(mx,my){
-  if(state!=='play'||modalOpen||gh.phase==='reveal') return;
-  if(Math.abs(mx)>250||Math.abs(my)>250) return;   // Chrome đôi khi báo delta khổng lồ lúc vừa khóa chuột
-  yaw-=mx*0.0025; pitch=Math.max(-1.3,Math.min(1.3,pitch-my*0.0025));
-}
 addEventListener('resize',fit);
 document.addEventListener('fullscreenchange',fit);
 $('lockbtn').onclick=()=>{if(state==='play'&&!modalOpen&&!transitioning)toggleSL();};
 document.querySelectorAll('#ui button').forEach(b=>b.addEventListener('click',()=>b.blur()));   // nhả focus để Space/Enter không bấm lại nút
+$('nt').style.display=inFrame?'block':'none';
+$('nt').onclick=()=>{try{
+  const w=window.open(URL.createObjectURL(new Blob([SRC],{type:'text/html'})),'_blank');
+  if(!w) banner('Trình duyệt chặn cửa sổ mới — hãy cho phép popup rồi bấm lại.',3000);
+}catch(e){banner('Không mở được tab mới.',2500);}};
 $('fs').onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();}catch(e){}};
 if(!document.documentElement.requestFullscreen) $('fs').style.display='none';   // iPhone không hỗ trợ toàn màn hình
 
@@ -1696,6 +1681,12 @@ function update(dt){
   if(state!=='play') return;
   if(modalOpen&&joyId!==null) stopJoy();
   if(!modalOpen){ if(keys.ArrowLeft) yaw+=1.8*dt; if(keys.ArrowRight) yaw-=1.8*dt; }
+  // Shift Lock dự phòng (không khóa được chuột): xoay camera theo vị trí chuột so với tâm khung
+  // (khi không khóa được chuột, con trỏ ẩn nhưng vẫn chạm mép màn hình -> chạm mép thì tiếp tục xoay về phía đó)
+  if(!modalOpen&&fakeLock()&&mouseIn&&!dragging){
+    const eb=.94, f=v=>Math.abs(v)>eb?Math.sign(v)*(Math.abs(v)-eb)/(1-eb):0;
+    yaw-=f(mouseX)*2.6*dt; pitch=Math.max(-1.3,Math.min(1.3,pitch-f(mouseY)*1.6*dt));
+  }
   let moving=false;
   if(!modalOpen&&!hidden&&!transitioning&&gh.phase!=='reveal'){
     let f=0,s=0;
@@ -1827,4 +1818,6 @@ if not load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True):
 if not load_mp3(PLAY_MUSIC_FILE):
     st.warning(f"Không tìm thấy file nhạc '{PLAY_MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc nền khi chơi.")
 components.html(_html, height=720, scrolling=False)
+st.caption("Shift Lock kiểu Roblox cần trình duyệt cho khóa chuột. Nếu không khóa được trong khung này, "
+           "bấm nút TAB MỚI trong game hoặc tải bản HTML bên dưới và mở bằng trình duyệt.")
 st.download_button("Tải game (.html) để chơi độc lập", _html, file_name="doors3d.html", mime="text/html")
