@@ -227,6 +227,8 @@ GAME_HTML = r"""
   .opt.bad{opacity:.38;text-decoration:line-through;cursor:not-allowed;background:#1c0808;border-color:#4a2a2a;box-shadow:none}
   .ov{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
       background:radial-gradient(ellipse at center,rgba(30,8,8,.88),rgba(0,0,0,.97));text-align:center;padding:20px;z-index:20;overflow:auto}
+  #menu{background:radial-gradient(ellipse at center,rgba(0,0,0,.28) 0%,rgba(0,0,0,.12) 45%,rgba(0,0,0,.45) 100%)}   /* menu trong suốt để thấy khu rừng phía sau */
+  #menu h1{text-shadow:0 0 22px #000,0 0 8px #000,0 0 18px #600}
   .ov h1{font-size:64px;letter-spacing:14px;margin:0 0 18px;color:#b3141a;text-shadow:0 0 18px #600,0 0 4px #000}
   .ov p{max-width:580px;line-height:1.55;color:#c9c0b0}
   button{background:#3a0d0d;color:#eee;border:1px solid #9a2a2a;padding:10px 22px;font-size:16px;
