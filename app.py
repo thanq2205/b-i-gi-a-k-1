@@ -204,8 +204,6 @@ GAME_HTML = r"""
   .ov,#modal,#sl,#fs,button,input{pointer-events:auto}
   #fs{position:absolute;top:8px;right:10px;z-index:30;padding:5px 10px;font-size:13px;margin:0;opacity:.75}
   #fs:hover{opacity:1}
-  #nt{position:absolute;top:8px;right:76px;z-index:30;padding:5px 10px;font-size:13px;margin:0;opacity:.75;display:none}
-  #nt:hover{opacity:1}
   #lockbtn{position:absolute;right:16px;bottom:16px;z-index:7;width:56px;height:56px;padding:0;margin:0;border-radius:50%;
            font-size:18px;font-weight:bold;background:rgba(0,0,0,.55);border:2px solid #9a2a2a;display:none}
   #lockbtn.on{background:rgba(120,90,10,.75);border-color:#ffd86b;box-shadow:0 0 14px #a80}
@@ -303,7 +301,7 @@ GAME_HTML = r"""
   #joyB,#joyK{position:absolute;border-radius:50%;display:none;pointer-events:none;z-index:7}
   #joyB{width:150px;height:150px;margin:-75px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.06)}
   #joyK{width:64px;height:64px;margin:-32px;background:rgba(255,255,255,.3);border:2px solid rgba(255,255,255,.55)}
-  .touch #fs,.touch #nt{padding:10px 16px;font-size:18px} .touch #nt{right:112px}
+  .touch #fs{padding:10px 16px;font-size:18px}
   #rot{position:fixed;inset:0;z-index:99;background:#000;color:#d9b45a;display:none;align-items:center;justify-content:center;
        text-align:center;padding:20px;font-size:22px;letter-spacing:2px}
 </style>
@@ -315,7 +313,6 @@ GAME_HTML = r"""
 <div id="hud"><div id="dn"></div><div id="hp"></div><div id="hn"></div><div id="ks"></div><div id="ot"></div></div>
 <div id="help">WASD / ←→: di chuyển · Kéo chuột: nhìn · Shift: Shift Lock · Giữ Space: chạy · E: tương tác · A/B/C/D: chọn đáp án · Esc: đóng</div>
 <button id="fs" title="Toàn màn hình">FULL</button>
-<button id="nt" title="Mở game ở tab mới (Shift Lock chuẩn như Roblox)">TAB MỚI</button>
 <button id="lockbtn" title="Shift Lock (phím Shift)">SL</button>
 <div id="tui"><div id="joyB"></div><div id="joyK"></div><div id="tE" class="tb">E</div><div id="tRun" class="tb">CHẠY</div></div>
 <div id="prompt"></div>
@@ -370,7 +367,6 @@ GAME_HTML = r"""
       <li><b>Kéo chuột</b>: nhìn xung quanh</li>
       <li><kbd>Shift</kbd> hoặc nút SL góc phải dưới: bật / tắt <b>Shift Lock</b> giống Roblox — chuột bị khóa ở giữa màn hình, hiện tâm ngắm, xoay camera mà không cần bấm chuột. Lỡ nhả chuột (Esc) thì bấm vào màn hình để khóa lại</li>
       <li>Khi tắt Shift Lock: giữ chuột trái hoặc phải rồi kéo để nhìn</li>
-      <li>Nếu chạy trong Streamlit mà không khóa được chuột (trình duyệt chặn), bấm nút <kbd>TAB MỚI</kbd> góc phải trên để mở game ở tab mới</li>
       <li><kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> hoặc bấm chuột: chọn đáp án khi trả lời câu hỏi</li>
       <li>Giữ <kbd>Space</kbd>: chạy</li>
       <li><b>Điện thoại</b> (nên xoay ngang): cần gạt bên trái màn hình để đi, vuốt bên phải để nhìn, nút <kbd>E</kbd> để tương tác, giữ nút <kbd>CHẠY</kbd> để chạy</li>
@@ -1335,7 +1331,16 @@ function resetGame(){musicStop();hp=MAX_HP;hints=HINTS0;door=0;hintShown={};stat
   camera.fov=72;camera.updateProjectionMatrix();$('scare').style.display='none';
   showOnly(''); startRoom(); syncLock();}
 function toMenu(){playMusicStop();state='menu';closeModal(true);syncLock();parkGhost();showOnly('menu');buildRoom();camera.position.set(0,1.6,RD/2-2);yaw=0;pitch=0;musicStart();}
-$('start').onclick=resetGame; $('retry').onclick=resetGame; $('again').onclick=resetGame;
+// Trong khung Streamlit (chặn khóa chuột): bấm CHƠI -> mở game ở tab mới để Shift Lock chạy chuẩn. Bị chặn popup thì chơi tại chỗ.
+$('start').onclick=()=>{
+  if(inFrame){
+    try{
+      const w=window.open(URL.createObjectURL(new Blob([SRC],{type:'text/html'})),'_blank');
+      if(w){banner('Game đã mở ở tab mới. Bấm CHƠI ở tab đó để bắt đầu.',3500);return;}
+    }catch(e){}
+  }
+  resetGame();
+}; $('retry').onclick=resetGame; $('again').onclick=resetGame;
 function setRF(v){RF=!!v; saveNum('doors_rf',RF?1:0); $('rfchk').checked=RF; $('rfchk2').checked=RF;}
 $('rfchk').onchange=()=>setRF($('rfchk').checked); $('rfchk2').onchange=()=>setRF($('rfchk2').checked); setRF(RF);
 $('warnok').onclick=()=>{$('warn').style.display='none';};
@@ -1607,11 +1612,6 @@ addEventListener('resize',fit);
 document.addEventListener('fullscreenchange',fit);
 $('lockbtn').onclick=()=>{if(state==='play'&&!modalOpen&&!transitioning)toggleSL();};
 document.querySelectorAll('#ui button').forEach(b=>b.addEventListener('click',()=>b.blur()));   // nhả focus để Space/Enter không bấm lại nút
-$('nt').style.display=inFrame?'block':'none';
-$('nt').onclick=()=>{try{
-  const w=window.open(URL.createObjectURL(new Blob([SRC],{type:'text/html'})),'_blank');
-  if(!w) banner('Trình duyệt chặn cửa sổ mới — hãy cho phép popup rồi bấm lại.',3000);
-}catch(e){banner('Không mở được tab mới.',2500);}};
 $('fs').onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();}catch(e){}};
 if(!document.documentElement.requestFullscreen) $('fs').style.display='none';   // iPhone không hỗ trợ toàn màn hình
 
@@ -1818,6 +1818,4 @@ if not load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True):
 if not load_mp3(PLAY_MUSIC_FILE):
     st.warning(f"Không tìm thấy file nhạc '{PLAY_MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc nền khi chơi.")
 components.html(_html, height=720, scrolling=False)
-st.caption("Shift Lock kiểu Roblox cần trình duyệt cho khóa chuột. Nếu không khóa được trong khung này, "
-           "bấm nút TAB MỚI trong game hoặc tải bản HTML bên dưới và mở bằng trình duyệt.")
 st.download_button("Tải game (.html) để chơi độc lập", _html, file_name="doors3d.html", mime="text/html")
