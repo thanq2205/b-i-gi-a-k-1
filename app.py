@@ -1799,6 +1799,8 @@ function update(dt){
   if(gh.phase==='warn') lampF=(Math.sin(tt*40)>.1&&Math.random()<.55)?1:.04;
   else if(ghostOn) lampF=Math.random()<.1?.6:.05+Math.random()*.08;
   if(RF) lampF=gh.phase==='warn'?.35+.25*Math.sin(tt*2.5):(ghostOn?.12:(flickT>0?.5:1));   // chế độ giảm chớp: đèn mờ/sáng chậm, không nhấp nháy
+  // Sét đánh: đèn điện trong phòng tắt phụt đúng 1 nhịp lúc tia chớp rồi sáng lại (giảm chớp: chỉ mờ đi nhẹ)
+  if(boltT>0&&(1-boltT)<.22) lampF=Math.min(lampF,RF?.45:.04);
   ambL.intensity=.85*(1-dark*.7)+flashV*1.2;
   lamp.intensity=1.1*lampF; lampB.intensity=.9*lampF;
   if(flameMat){const v=Math.max(.15,lampF);flameMat.color.setRGB(v,.85*v,.63*v);}
