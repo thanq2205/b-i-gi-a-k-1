@@ -1,5 +1,5 @@
 """
-DOORS 3D – Trò chơi giải đố kinh dị 5 cửa, góc nhìn thứ nhất (lấy cảm hứng từ Doors trong Roblox)
+ESCAPE – Trò chơi giải đố kinh dị 5 cửa, góc nhìn thứ nhất (lấy cảm hứng từ Doors trong Roblox)
 Chạy:  streamlit run app.py
 Đặt file nhạc "doors-roblox-ost-elevator-jam-made-with-Voicemod.mp3" cùng thư mục với app.py.
 Game 3D chạy bằng Three.js, nhúng vào Streamlit qua components.html.
@@ -11,7 +11,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="DOORS 3D", layout="wide")
+st.set_page_config(page_title="ESCAPE", layout="wide")
 
 
 # ---------------------------------------------------------------------------
@@ -344,7 +344,7 @@ GAME_HTML = r"""
 </div></div>
 
 <div id="menu" class="ov" style="display:flex">
-  <h1>DOORS</h1>
+  <h1>ESCAPE</h1>
   <div class="mb">
     <button id="start">CHƠI</button>
     <button id="how">HƯỚNG DẪN</button>
@@ -1899,4 +1899,4 @@ if not load_mp3(MUSIC_FILE, PLAY_MUSIC_FILE, True):
 if not load_mp3(PLAY_MUSIC_FILE):
     st.warning(f"Không tìm thấy file nhạc '{PLAY_MUSIC_FILE}'. Hãy đặt nó cùng thư mục với app.py để có nhạc nền khi chơi.")
 components.html(_html, height=720, scrolling=False)
-st.download_button("Tải game (.html) để chơi độc lập", _html, file_name="doors3d.html", mime="text/html")
+st.download_button("Tải game (.html) để chơi độc lập", _html, file_name="escape.html", mime="text/html")
