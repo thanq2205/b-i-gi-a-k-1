@@ -1335,8 +1335,14 @@ function toMenu(){playMusicStop();state='menu';closeModal(true);syncLock();parkG
 $('start').onclick=()=>{
   if(inFrame){
     try{
-      const w=window.open(URL.createObjectURL(new Blob([SRC],{type:'text/html'})),'_blank');
+      const w=window.open(URL.createObjectURL(new Blob([SRC],{type:'text/html'}))+'#fromframe','_blank');
       if(w){banner('Game đã mở ở tab mới. Bấm CHƠI ở tab đó để bắt đầu.',3500);return;}
+    }catch(e){}
+  }
+  else if(location.hash==='#fromframe'&&window.opener){   // tab mới do trang Streamlit mở ra -> đóng tab cũ
+    try{
+      const t=window.opener.top; t.close();
+      setTimeout(()=>{try{if(!t.closed)t.location.replace('about:blank');}catch(e){}},300);   // trình duyệt không cho đóng thì làm trống tab cũ
     }catch(e){}
   }
   resetGame();
