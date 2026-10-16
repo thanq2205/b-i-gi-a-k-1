@@ -1336,17 +1336,18 @@ $('start').onclick=()=>{
   if(inFrame){
     try{
       const w=window.open(URL.createObjectURL(new Blob([SRC],{type:'text/html'}))+'#fromframe','_blank');
-      if(w){banner('Game đã mở ở tab mới. Bấm CHƠI ở tab đó để bắt đầu.',3500);return;}
-    }catch(e){}
-  }
-  else if(location.hash==='#fromframe'&&window.opener){   // tab mới do trang Streamlit mở ra -> đóng tab cũ
-    try{
-      const t=window.opener.top; t.close();
-      setTimeout(()=>{try{if(!t.closed)t.location.replace('about:blank');}catch(e){}},300);   // trình duyệt không cho đóng thì làm trống tab cũ
+      if(w){return;}
     }catch(e){}
   }
   resetGame();
-}; $('retry').onclick=resetGame; $('again').onclick=resetGame;
+};
+// Tab mới do trang Streamlit mở ra: vừa mở xong là đóng luôn tab cũ (không cho đóng thì làm trống tab cũ).
+if(!inFrame&&location.hash==='#fromframe'&&window.opener){
+  try{
+    const t=window.opener.top; t.close();
+    setTimeout(()=>{try{if(!t.closed)t.location.replace('about:blank');}catch(e){}},300);
+  }catch(e){}
+} $('retry').onclick=resetGame; $('again').onclick=resetGame;
 function setRF(v){RF=!!v; saveNum('doors_rf',RF?1:0); $('rfchk').checked=RF; $('rfchk2').checked=RF;}
 $('rfchk').onchange=()=>setRF($('rfchk').checked); $('rfchk2').onchange=()=>setRF($('rfchk2').checked); setRF(RF);
 $('warnok').onclick=()=>{$('warn').style.display='none';};
